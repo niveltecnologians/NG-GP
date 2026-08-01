@@ -6,7 +6,7 @@ export type Attachment = {
   size: number;
   mimeType: string;
   createdAt: string;
-  uploadedBy?: UserLite;
+  uploadedBy: { id: string; name: string } | null;
 };
 
 export type TaskStatus = "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";

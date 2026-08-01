@@ -32,6 +32,15 @@ export default async function ProjectPage({ params }: { params: { id: string } }
 
   const isOwner = project.ownerId === user.userId;
 
+  const serialized = {
+    ...project,
+    tasks: project.tasks.map((t) => ({
+      ...t,
+      dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+      attachments: t.attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }))
+    }))
+  };
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -45,7 +54,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         {isOwner && <AddMemberForm projectId={project.id} />}
       </div>
 
-      <KanbanBoard project={project} currentUserId={user.userId} />
+      <KanbanBoard project={serialized} currentUserId={user.userId} />
     </div>
   );
 }

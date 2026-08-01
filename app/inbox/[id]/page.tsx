@@ -21,5 +21,12 @@ export default async function TicketPage({ params }: { params: { id: string } })
   if (!ticket) notFound();
   if (ticket.senderId !== user.userId && ticket.recipientId !== user.userId) notFound();
 
-  return <ThreadView ticket={ticket} currentUserId={user.userId} />;
+  const serialized = {
+    ...ticket,
+    createdAt: ticket.createdAt.toISOString(),
+    updatedAt: ticket.updatedAt.toISOString(),
+    replies: ticket.replies.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }))
+  };
+
+  return <ThreadView ticket={serialized} currentUserId={user.userId} />;
 }
