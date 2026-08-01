@@ -1,0 +1,117 @@
+# Gestor de Proyectos (estilo Monday.com) — versión en la nube
+
+MVP funcional de una plataforma de gestión de proyectos y tareas, con base de datos real compartida: varias personas pueden conectarse por internet y ver/editar la misma información (a diferencia de la versión estática, que guarda todo solo en el navegador de cada quien).
+
+## Referentes investigados
+
+Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monday.com**, **Asana**, **ClickUp**, **Trello**, **Wrike** y alternativas open source como **OpenProject**, **Leantime** y **Freedcamp**. De ahí se tomaron los conceptos base: tableros por proyecto con columnas de estado (Kanban), tarjetas de tarea con responsable/prioridad/fecha límite, y archivos adjuntos por tarea. La bandeja de entrada tipo correo (para "requerimientos" con trazabilidad de respuestas) es un añadido específico de este proyecto, inspirado en el sistema de tickets de herramientas de soporte.
+
+## Funcionalidades incluidas
+
+- Autenticación propia (registro, login, logout) con contraseña cifrada y sesión por JWT en cookie httpOnly. El primer usuario registrado queda como administrador.
+- Proyectos (tableros) con miembros invitados por email.
+- Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite.
+- Tablero Kanban con arrastrar y soltar para cambiar el estado de una tarea.
+- Subida y descarga de archivos adjuntos por tarea (hasta 5MB por archivo, guardados en la base de datos para funcionar en la nube).
+- Bandeja de entrada por usuario: cualquier miembro puede enviar un "requerimiento" a otro (como un correo, con asunto y mensaje), con hilo de respuestas y estado (Abierto / En progreso / Cerrado) para trazabilidad completa.
+- **Gestión de usuarios** (solo administradores): crear y eliminar cuentas del equipo desde `/users`.
+- **Informes** (`/reports`): resumen de tareas por estado, tareas vencidas, tabla detallada por proyecto y exportación a CSV / impresión.
+
+## Stack técnico
+
+- **Next.js 14** (App Router) + **TypeScript** — frontend y backend (API routes) en un solo proyecto, desplegado en **Vercel**.
+- **Prisma ORM** + **PostgreSQL** — pensado para una base de datos gratuita en la nube (Neon o Supabase), así todos los usuarios comparten los mismos datos sin importar desde dónde se conecten.
+- **Tailwind CSS** para estilos.
+- Autenticación propia con **bcryptjs** (hash de contraseñas) y **jose** (JWT, compatible con el middleware de Next.js).
+- Los archivos adjuntos se guardan como bytes directamente en la base de datos (no en disco), porque en Vercel (y la mayoría de plataformas serverless) el sistema de archivos no es persistente entre peticiones.
+
+## Estructura del proyecto
+
+```
+app/
+  api/            # Endpoints backend (auth, users, projects, tasks, attachments, inbox)
+  dashboard/      # Listado de proyectos
+  projects/[id]/  # Tablero Kanban de un proyecto
+  inbox/          # Bandeja de entrada tipo correo
+  users/          # Gestión de usuarios (solo admin)
+  reports/        # Informes por proyecto
+  login/ register/
+components/       # KanbanBoard, TaskCard, TaskModal, Navbar
+lib/              # prisma client, auth (JWT/hash), sesión, tipos, selects reutilizables
+prisma/
+  schema.prisma   # Modelo de datos
+  seed.ts         # Datos de prueba (solo para uso local)
+```
+
+## Modelo de datos (resumen)
+
+- `User` (nombre, email, contraseña, rol admin/miembro)
+- `Project` (dueño, miembros vía `ProjectMember`)
+- `Task` (proyecto, responsable, creador, estado, prioridad, fecha límite)
+- `Attachment` (archivo como bytes en la base de datos, vinculado a una tarea, quién lo subió)
+- `Ticket` + `TicketReply` (requerimiento tipo correo, remitente, destinatario, estado, hilo de respuestas)
+
+Todas las entidades tienen `createdAt`/`updatedAt` para trazabilidad. Si se elimina un usuario, sus referencias (creador de una tarea, remitente de un ticket, etc.) quedan como "Usuario eliminado" en vez de borrar el historial.
+
+## Desplegar en la nube (recomendado — así varias personas comparten los mismos datos)
+
+Consulta la guía paso a paso `guia-despliegue-nube.md` incluida junto a este proyecto: cubre crear una base de datos Postgres gratis (Neon), subir el código a GitHub, desplegarlo en Vercel con variables de entorno, y probarlo con varios usuarios reales.
+
+Resumen rápido:
+
+1. Crea una base de datos Postgres gratuita en [neon.tech](https://neon.tech) y copia el connection string.
+2. Sube este código a un repositorio de GitHub.
+3. Importa el repositorio en [vercel.com](https://vercel.com).
+4. En "Environment Variables" agrega `DATABASE_URL` (el connection string de Neon) y `JWT_SECRET` (una cadena larga y aleatoria).
+5. Despliega. El comando de build (`npm run build`) ya incluye `prisma db push`, así que las tablas se crean solas en la base de datos la primera vez.
+6. Entra a la URL que te da Vercel, regístrate (el primer usuario queda como administrador) y desde `/users` agrega al resto del equipo.
+
+## Cómo correrlo en tu computadora (opcional, para seguir desarrollando)
+
+Requisitos: Node.js 18+ y una base de datos Postgres (puedes usar la misma de Neon, o crear un segundo proyecto gratis ahí para "desarrollo").
+
+```bash
+npm install
+cp .env.example .env      # pega tu DATABASE_URL de Postgres y define JWT_SECRET
+npx prisma db push        # crea las tablas
+npm run seed               # opcional: crea usuarios y datos de prueba
+npm run dev
+```
+
+Abre `http://localhost:3000`. Si ejecutaste el seed, puedes entrar con:
+
+- `admin@empresa.com` / `password123` (administrador)
+- `ana@empresa.com` / `password123`
+- `luis@empresa.com` / `password123`
+
+O simplemente regístrate desde `/register` (el primer usuario registrado será administrador).
+
+## Cómo subirlo a GitHub
+
+```bash
+cd gestor-proyectos   # o el nombre que le des a la carpeta
+git init
+git add .
+git commit -m "Primer commit: MVP gestor de proyectos"
+git branch -M main
+git remote add origin https://github.com/TU-USUARIO/TU-REPO.git
+git push -u origin main
+```
+
+`node_modules` y el archivo `.env` (que contiene tus claves) ya están excluidos vía `.gitignore` — nunca subas ese archivo a GitHub.
+
+## Roadmap sugerido (siguientes pasos)
+
+- Notificaciones (email o in-app) cuando se asigna una tarea o llega un requerimiento nuevo.
+- Comentarios dentro de cada tarea (además de los adjuntos).
+- Vista de calendario y vista de lista, además del Kanban.
+- Roles y permisos más granulares por proyecto (no solo dueño/miembro).
+- Búsqueda global de tareas y requerimientos.
+- Tests automatizados (unitarios de las rutas API y end-to-end del flujo principal).
+
+## Limitaciones conocidas del MVP
+
+- Los archivos adjuntos están pensados para tamaños moderados (máx. 5MB c/u); las bases gratuitas de Neon/Supabase tienen un límite total de almacenamiento (0.5GB aprox.), así que en un uso intensivo con muchos archivos conviene migrar a almacenamiento externo (S3, R2, Supabase Storage) más adelante.
+- No hay recuperación de contraseña por email todavía.
+- El drag-and-drop del Kanban usa la API nativa del navegador (sin librería externa), funciona bien en escritorio pero no está optimizado para móvil.
+- `prisma db push` (usado en el build automático) sincroniza el esquema directamente; para un equipo grande con cambios de esquema frecuentes, conviene migrar más adelante a `prisma migrate` con historial de migraciones.
