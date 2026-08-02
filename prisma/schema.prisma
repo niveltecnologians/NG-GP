@@ -160,7 +160,13 @@ model Attachment {
   filename     String
   mimeType     String
   size         Int
-  data         Bytes
+
+  // Archivos nuevos: se guardan en Vercel Blob y aquí solo queda la URL
+  // (permite subir archivos grandes sin pasar por el límite de tamaño de
+  // las funciones serverless). Archivos antiguos: siguen con los bytes
+  // guardados directamente en la base de datos, para no perder nada.
+  data         Bytes?
+  url          String?
 
   taskId       String
   task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -212,7 +218,11 @@ model ChatMessage {
   type        ChatMessageType @default(TEXT)
   body        String?
 
+  // Igual que en Attachment: los archivos nuevos van a Vercel Blob (fileUrl)
+  // para poder ser grandes; los que ya estaban guardados como bytes
+  // (fileData) se conservan tal cual.
   fileData     Bytes?
+  fileUrl      String?
   fileName     String?
   fileMimeType String?
   fileSize     Int?

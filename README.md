@@ -10,6 +10,20 @@ Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, pue
 
 Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monday.com**, **Asana**, **ClickUp**, **Trello**, **Wrike** y alternativas open source como **OpenProject**, **Leantime** y **Freedcamp**. De ahí se tomaron los conceptos base: tableros por proyecto con columnas de estado (Kanban), tarjetas de tarea con responsable/prioridad/fecha límite, y archivos adjuntos por tarea. La bandeja de entrada tipo correo (para "requerimientos" con trazabilidad de respuestas) es un añadido específico de este proyecto, inspirado en el sistema de tickets de herramientas de soporte.
 
+## Archivos pesados: necesitas activar Vercel Blob (paso nuevo, una sola vez)
+
+Los archivos adjuntos de tareas y del chat ahora se suben directo del navegador a **Vercel Blob** (almacenamiento de archivos de Vercel), en vez de pasar por la base de datos. Esto es necesario porque Vercel limita a ~4.5MB lo que puede recibir una función serverless — por eso antes fallaban los archivos pesados, sin importar el código.
+
+Antes de volver a desplegar esta versión, activa Vercel Blob en tu proyecto (una sola vez):
+
+1. En tu proyecto de Vercel, ve a la pestaña **"Storage"**.
+2. Haz clic en **"Create Database"** → elige **"Blob"**.
+3. Ponle un nombre (por ejemplo "archivos") y confirma. Marca que se conecte a los ambientes **Production** y **Preview**.
+4. Vercel agrega solo la variable de entorno `BLOB_READ_WRITE_TOKEN` a tu proyecto — no tienes que copiar ni pegar nada.
+5. Sube el código de esta versión a GitHub como siempre; Vercel va a redesplegar y desde ese momento los archivos pesados van a funcionar.
+
+Los archivos que ya habías subido antes (guardados en la base de datos) siguen funcionando exactamente igual — no se pierden ni hay que volver a subirlos.
+
 ## Funcionalidades incluidas
 
 - **Configuración de marca** (`/settings`, solo administradores): cambia el nombre de la aplicación (reemplaza "Gestor de Proyectos" en la barra superior, el título de la pestaña y las pantallas de login/registro), sube un logo y una imagen/portada. Se aplica al instante para todo el equipo.
@@ -18,7 +32,7 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 - Proyectos (tableros) con miembros que se agregan seleccionándolos de una lista (ya no hace falta escribir el email). El dueño puede editar el nombre y la descripción del proyecto en cualquier momento.
 - Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite. Al asignar (o reasignar) una tarea, la persona recibe automáticamente un aviso en su bandeja de entrada.
 - Tablero Kanban con arrastrar y soltar para cambiar el estado de una tarea.
-- Subida y descarga de archivos adjuntos por tarea (hasta 5MB por archivo, guardados en la base de datos para funcionar en la nube).
+- Subida y descarga de archivos adjuntos por tarea, **puedes seleccionar varios archivos a la vez** y nunca se borran los que ya estaban al agregar uno nuevo. Los archivos se suben directo a Vercel Blob (hasta 100MB cada uno) — ver la sección de arriba sobre activar Vercel Blob.
 - Bandeja de entrada por usuario: cualquier miembro puede enviar un "requerimiento" a otro (como un correo, con asunto y mensaje), con hilo de respuestas y estado (Abierto / En progreso / Cerrado) para trazabilidad completa.
 - **Gestión de usuarios** (solo administradores): crear y eliminar cuentas del equipo desde `/users`.
 - **Códigos de invitación** (solo administradores, también desde `/users`): generas un código de un solo uso (con rol miembro o administrador) y se lo compartes a quien quieras sumar; sin código válido no se puede crear una cuenta nueva.
@@ -136,5 +150,6 @@ git push -u origin main
 - Los grupos de chat todavía no tienen opción de cambiar el nombre después de creados (sí se puede agregar/quitar miembros y eliminar el grupo).
 - Mencionar a alguien con @ resalta su nombre en el mensaje, pero por ahora no le dispara una notificación aparte en su bandeja de entrada (queda como posible mejora futura).
 - Las notificaciones del navegador solo funcionan mientras la pestaña de la app sigue abierta (aunque esté minimizada o en segundo plano); si se cierra la pestaña por completo no llegan avisos, ya que eso requeriría configurar notificaciones push reales (con su propio servicio externo).
-- Los mensajes de audio del chat (hasta 8MB) usan la grabación nativa del navegador; funciona bien en Chrome/Edge/Firefox. En Safari/iOS el soporte de grabación de audio puede ser más limitado según la versión.
+- Los mensajes de audio del chat usan la grabación nativa del navegador; funciona bien en Chrome/Edge/Firefox. En Safari/iOS el soporte de grabación de audio puede ser más limitado según la versión.
+- El logo, la imagen de portada y el fondo personalizado de perfil siguen subiéndose directo a la base de datos (no a Vercel Blob), con un máximo de 2-3MB — es de sobra para ese tipo de imágenes chicas y evita complicar esa parte.
 - La imagen de fondo personalizada del perfil es privada (solo la ve quien la configuró); no se comparte con el resto del equipo.
