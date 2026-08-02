@@ -2,16 +2,21 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
+import { getAppSettings } from "@/lib/settings";
 import Navbar from "@/components/Navbar";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 
-export const metadata: Metadata = {
-  title: "Gestor de Proyectos",
-  description: "Seguimiento de proyectos, tareas y requerimientos del equipo"
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getAppSettings();
+  return {
+    title: settings.appName,
+    description: "Seguimiento de proyectos, tareas y requerimientos del equipo"
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  const settings = await getAppSettings();
 
   let bodyStyle: React.CSSProperties = {};
   let bodyClassName = "min-h-screen bg-gradient-to-b from-brand-50/60 via-slate-50 to-slate-50";
@@ -34,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="es">
       <body className={bodyClassName} style={bodyStyle}>
         {user && <PresenceHeartbeat />}
-        {user && <Navbar user={user} />}
+        {user && <Navbar user={user} appName={settings.appName} hasLogo={settings.hasLogo} />}
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
       </body>
     </html>

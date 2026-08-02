@@ -5,10 +5,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionPayload } from "@/lib/auth";
 
-export default function Navbar({ user }: { user: SessionPayload }) {
+export default function Navbar({
+  user,
+  appName,
+  hasLogo
+}: {
+  user: SessionPayload;
+  appName: string;
+  hasLogo: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [avatarError, setAvatarError] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   const [chatUnread, setChatUnread] = useState(0);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
@@ -77,7 +86,12 @@ export default function Navbar({ user }: { user: SessionPayload }) {
     { href: "/inbox", label: "Bandeja de entrada", badge: inboxUnread },
     { href: "/chat", label: "Chat", badge: chatUnread },
     { href: "/reports", label: "Informes", badge: 0 },
-    ...(user.role === "ADMIN" ? [{ href: "/users", label: "Usuarios", badge: 0 }] : [])
+    ...(user.role === "ADMIN"
+      ? [
+          { href: "/users", label: "Usuarios", badge: 0 },
+          { href: "/settings", label: "Configuración", badge: 0 }
+        ]
+      : [])
   ];
 
   const initials = user.name
@@ -87,15 +101,26 @@ export default function Navbar({ user }: { user: SessionPayload }) {
     .join("")
     .toUpperCase();
 
+  const appInitials = appName.slice(0, 2).toUpperCase();
+
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-7">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
-              GP
-            </span>
-            <span className="hidden text-base font-bold text-slate-900 sm:inline">Gestor de Proyectos</span>
+            {hasLogo && !logoError ? (
+              <img
+                src="/api/settings/logo-image"
+                alt={appName}
+                onError={() => setLogoError(true)}
+                className="h-8 w-8 rounded-lg object-contain"
+              />
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+                {appInitials}
+              </span>
+            )}
+            <span className="hidden text-base font-bold text-slate-900 sm:inline">{appName}</span>
           </Link>
           <nav className="flex gap-1 text-sm font-medium text-slate-600">
             {links.map((l) => {

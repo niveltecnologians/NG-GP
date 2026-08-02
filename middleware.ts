@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySession } from "@/lib/auth";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/projects", "/inbox", "/reports", "/users", "/profile", "/chat"];
+const PROTECTED_PREFIXES = ["/dashboard", "/projects", "/inbox", "/reports", "/users", "/profile", "/chat", "/settings"];
 const AUTH_PAGES = ["/login", "/register"];
 const SESSION_COOKIE = "session_token";
 
@@ -38,6 +38,7 @@ export const config = {
     "/users/:path*",
     "/profile/:path*",
     "/chat/:path*",
+    "/settings/:path*",
     "/login",
     "/register"
   ]
