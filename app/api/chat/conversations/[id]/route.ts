@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { isOnline } from "@/lib/presence";
+import { extractMentionedUserIds } from "@/lib/mentions";
 
 const MESSAGE_SELECT = {
   id: true,
@@ -106,6 +107,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       select: MESSAGE_SELECT
     });
     await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
+
+    // Detecta menciones "@Nombre" y las guarda para el panel de menciones.
+    const members = await prisma.conversationMember.findMany({
+      where: { conversationId: params.id },
+      include: { user: { select: { id: true, name: true } } }
+    });
+    const mentionedIds = extractMentionedUserIds(
+      message.body || "",
+      members.map((m) => m.user)
+    ).filter((id) => id !== user.userId);
+    if (mentionedIds.length > 0) {
+      await prisma.mention.createMany({
+        data: mentionedIds.map((userId) => ({ messageId: message.id, userId })),
+        skipDuplicates: true
+      });
+    }
+
     return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString(), replyCount: 0 }, { status: 201 });
   }
 

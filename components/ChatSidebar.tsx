@@ -27,6 +27,19 @@ type SearchResult = {
   senderName: string;
 };
 
+type MentionItem = {
+  id: string;
+  messageId: string;
+  body: string | null;
+  createdAt: string;
+  conversationId: string;
+  conversationName: string;
+  senderName: string;
+  isThreadReply: boolean;
+  parentMessageId: string | null;
+  answered: boolean;
+};
+
 export default function ChatSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -36,10 +49,17 @@ export default function ChatSidebar() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentions, setMentions] = useState<MentionItem[]>([]);
+  const [loadingMentions, setLoadingMentions] = useState(true);
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 5000);
+    loadMentions();
+    const interval = setInterval(() => {
+      load();
+      loadMentions();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -70,13 +90,29 @@ export default function ChatSidebar() {
       .finally(() => setLoading(false));
   }
 
+  function loadMentions() {
+    fetch("/api/chat/mentions")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setMentions(data);
+      })
+      .finally(() => setLoadingMentions(false));
+  }
+
   function goToResult(r: SearchResult) {
     const target = r.isThreadReply ? `/chat/${r.conversationId}?thread=${r.parentMessageId}` : `/chat/${r.conversationId}?m=${r.id}`;
     setQuery("");
     router.push(target);
   }
 
+  function goToMention(m: MentionItem) {
+    const target = m.isThreadReply ? `/chat/${m.conversationId}?thread=${m.parentMessageId}` : `/chat/${m.conversationId}?m=${m.messageId}`;
+    setShowMentions(false);
+    router.push(target);
+  }
+
   const showingSearch = query.trim().length >= 2;
+  const pendingMentions = mentions.filter((m) => !m.answered);
 
   return (
     <div className="card flex h-[calc(100vh-140px)] w-full flex-col overflow-hidden sm:w-72">
@@ -96,12 +132,60 @@ export default function ChatSidebar() {
           className="input"
           placeholder="🔎 Buscar en el chat..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setShowMentions(false);
+          }}
         />
+        <button
+          onClick={() => setShowMentions((v) => !v)}
+          className={`mt-2 flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-sm transition ${
+            showMentions ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+          }`}
+        >
+          <span>🔔 Menciones</span>
+          {pendingMentions.length > 0 && (
+            <span
+              className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+                showMentions ? "bg-white text-brand-700" : "bg-brand-600 text-white"
+              }`}
+            >
+              {pendingMentions.length}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {showingSearch ? (
+        {showMentions ? (
+          loadingMentions ? (
+            <p className="p-4 text-sm text-slate-400">Cargando...</p>
+          ) : mentions.length === 0 ? (
+            <p className="p-4 text-sm text-slate-400">Nadie te ha mencionado todavía.</p>
+          ) : (
+            mentions.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => goToMention(m)}
+                className="block w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-medium text-slate-900">
+                    {m.senderName} <span className="font-normal text-slate-400">en {m.conversationName}</span>
+                  </p>
+                  {!m.answered && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" title="Sin responder" />}
+                </div>
+                <p className="truncate text-xs text-slate-500">
+                  {m.body}
+                  {m.isThreadReply && <span className="ml-1 text-slate-400">(en un hilo)</span>}
+                </p>
+                <p className="mt-0.5 text-[10px] text-slate-400">
+                  {m.answered ? "Ya respondiste" : "Pendiente de respuesta"} · {new Date(m.createdAt).toLocaleDateString("es-ES")}
+                </p>
+              </button>
+            ))
+          )
+        ) : showingSearch ? (
           searching ? (
             <p className="p-4 text-sm text-slate-400">Buscando...</p>
           ) : results.length === 0 ? (

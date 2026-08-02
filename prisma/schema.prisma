@@ -74,6 +74,7 @@ model User {
   chatsReceived        ChatMessage[]        @relation("ChatRecipient")
   conversationsCreated Conversation[]       @relation("ConversationCreator")
   conversations        ConversationMember[]
+  mentions             Mention[]
 }
 
 model InviteCode {
@@ -218,10 +219,26 @@ model ChatMessage {
 
   createdAt   DateTime        @default(now())
 
+  mentions    Mention[]
+
   @@index([senderId, recipientId])
   @@index([recipientId, senderId])
   @@index([conversationId])
   @@index([parentMessageId])
+}
+
+// Registra que un mensaje mencionó (con @Nombre) a un usuario, para poder
+// mostrarle un panel de "te mencionaron" en el chat.
+model Mention {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId])
 }
 
 model Conversation {

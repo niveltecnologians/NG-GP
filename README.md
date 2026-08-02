@@ -26,6 +26,7 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 - **Hilos de conversación**: cualquier mensaje del chat se puede responder en un hilo aparte (como en Slack), sin llenar el canal principal. El botón "💬 Responder en hilo" bajo cada mensaje abre un panel con esas respuestas; si ya tiene respuestas, muestra el contador.
 - **Gestión de grupos**: desde el botón "Miembros" en el encabezado de un grupo se puede agregar gente nueva, quitar miembros (solo quien creó el grupo), salir del grupo, o eliminarlo por completo (solo el creador).
 - **Menciones con @**: al escribir "@" dentro de un grupo aparece un menú para elegir a la persona; su nombre queda resaltado en el mensaje para todos.
+- **Panel de menciones**: el botón "🔔 Menciones" en la barra lateral del chat muestra quién te mencionó, en qué conversación, y si ya le respondiste o sigue pendiente (con un punto de color); un clic te lleva directo a ese mensaje.
 - **Buscador de palabras clave en el chat**: campo de búsqueda en la barra lateral que busca en todos tus mensajes (de canal y de hilos), en todas tus conversaciones; al hacer clic en un resultado te lleva directo a ese mensaje.
 
 ## Stack técnico
