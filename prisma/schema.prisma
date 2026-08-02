@@ -7,6 +7,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Fila única (id fijo "singleton") con la personalización de marca de todo
+// el sistema: nombre de la app, logo pequeño y una imagen/portada grande.
+model AppSettings {
+  id             String   @id @default("singleton")
+  appName        String   @default("Gestor de Proyectos")
+
+  logoData       Bytes?
+  logoMimeType   String?
+  hasLogo        Boolean  @default(false)
+
+  bannerData     Bytes?
+  bannerMimeType String?
+  hasBanner      Boolean  @default(false)
+
+  updatedAt      DateTime @updatedAt
+}
+
 enum Role {
   ADMIN
   MEMBER

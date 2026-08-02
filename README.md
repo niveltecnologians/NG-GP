@@ -12,6 +12,8 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 
 ## Funcionalidades incluidas
 
+- **Configuración de marca** (`/settings`, solo administradores): cambia el nombre de la aplicación (reemplaza "Gestor de Proyectos" en la barra superior, el título de la pestaña y las pantallas de login/registro), sube un logo y una imagen/portada. Se aplica al instante para todo el equipo.
+
 - Autenticación propia (registro, login, logout) con contraseña cifrada y sesión por JWT en cookie httpOnly. El primer usuario registrado queda como administrador; todos los siguientes necesitan un **código de invitación**.
 - Proyectos (tableros) con miembros que se agregan seleccionándolos de una lista (ya no hace falta escribir el email). El dueño puede editar el nombre y la descripción del proyecto en cualquier momento.
 - Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite. Al asignar (o reasignar) una tarea, la persona recibe automáticamente un aviso en su bandeja de entrada.
