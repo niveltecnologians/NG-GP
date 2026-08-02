@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
+import { notifyTaskAssignment } from "@/lib/notify";
 
 async function assertAccess(taskId: string, userId: string) {
   const task = await prisma.task.findUnique({
@@ -57,6 +58,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       attachments: { select: ATTACHMENT_LIST_SELECT }
     }
   });
+
+  const assigneeChanged = body.assigneeId !== undefined && updated.assigneeId !== task.assigneeId;
+  if (assigneeChanged && updated.assigneeId) {
+    await notifyTaskAssignment({
+      assigneeId: updated.assigneeId,
+      actorId: user.userId,
+      actorName: user.name,
+      taskTitle: updated.title,
+      projectName: task.project.name
+    });
+  }
 
   return NextResponse.json(updated);
 }

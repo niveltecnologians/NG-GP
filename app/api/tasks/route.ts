@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
+import { notifyTaskAssignment } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
@@ -33,6 +34,16 @@ export async function POST(req: NextRequest) {
       attachments: { select: ATTACHMENT_LIST_SELECT }
     }
   });
+
+  if (task.assigneeId) {
+    await notifyTaskAssignment({
+      assigneeId: task.assigneeId,
+      actorId: user.userId,
+      actorName: user.name,
+      taskTitle: task.title,
+      projectName: project.name
+    });
+  }
 
   return NextResponse.json(task, { status: 201 });
 }

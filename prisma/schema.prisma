@@ -48,6 +48,23 @@ model User {
   ticketsSent     Ticket[]        @relation("TicketSender")
   ticketsReceived Ticket[]        @relation("TicketRecipient")
   replies         TicketReply[]
+  invitesCreated  InviteCode[]    @relation("InviteCreator")
+  invitesUsed     InviteCode[]    @relation("InviteUsedBy")
+}
+
+model InviteCode {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  role        Role      @default(MEMBER)
+
+  createdById String?
+  createdBy   User?     @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  usedById    String?
+  usedBy      User?     @relation("InviteUsedBy", fields: [usedById], references: [id], onDelete: SetNull)
+  usedAt      DateTime?
+
+  createdAt   DateTime  @default(now())
 }
 
 model Project {

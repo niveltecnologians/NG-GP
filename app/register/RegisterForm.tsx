@@ -8,6 +8,7 @@ export default function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,7 @@ export default function RegisterForm() {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, inviteCode })
     });
     setLoading(false);
     if (!res.ok) {
@@ -44,6 +45,18 @@ export default function RegisterForm() {
       <div>
         <label className="mb-1 block text-sm font-medium">Contraseña</label>
         <input type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+      </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Código de invitación</label>
+        <input
+          className="input uppercase"
+          value={inviteCode}
+          onChange={(e) => setInviteCode(e.target.value)}
+          placeholder="AB12-CD34"
+        />
+        <p className="mt-1 text-xs text-slate-400">
+          Pídeselo a tu administrador. Solo el primer usuario del sistema puede registrarse sin código.
+        </p>
       </div>
       <button type="submit" disabled={loading} className="btn w-full">
         {loading ? "Creando..." : "Crear cuenta"}

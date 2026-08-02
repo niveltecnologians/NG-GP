@@ -13,7 +13,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="es">
-      <body>
+      <body className="min-h-screen bg-gradient-to-b from-brand-50/60 via-slate-50 to-slate-50">
         {user && <Navbar user={user} />}
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
       </body>

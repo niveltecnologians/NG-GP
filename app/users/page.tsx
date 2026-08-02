@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import UsersManager from "./UsersManager";
+import InvitesManager from "./InvitesManager";
 
 export default async function UsersPage() {
   const user = await requireUser();
@@ -26,6 +27,10 @@ export default async function UsersPage() {
         <p className="text-sm text-slate-500">Crea y elimina cuentas del equipo</p>
       </div>
       <UsersManager initialUsers={users} currentUserId={user.userId} />
+
+      <div className="mt-10">
+        <InvitesManager />
+      </div>
     </div>
   );
 }

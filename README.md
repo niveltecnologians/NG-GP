@@ -2,19 +2,24 @@
 
 MVP funcional de una plataforma de gestión de proyectos y tareas, con base de datos real compartida: varias personas pueden conectarse por internet y ver/editar la misma información (a diferencia de la versión estática, que guarda todo solo en el navegador de cada quien).
 
+## Actualizar un despliegue que ya tiene datos
+
+Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (solo agregan la tabla nueva de códigos de invitación), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
+
 ## Referentes investigados
 
 Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monday.com**, **Asana**, **ClickUp**, **Trello**, **Wrike** y alternativas open source como **OpenProject**, **Leantime** y **Freedcamp**. De ahí se tomaron los conceptos base: tableros por proyecto con columnas de estado (Kanban), tarjetas de tarea con responsable/prioridad/fecha límite, y archivos adjuntos por tarea. La bandeja de entrada tipo correo (para "requerimientos" con trazabilidad de respuestas) es un añadido específico de este proyecto, inspirado en el sistema de tickets de herramientas de soporte.
 
 ## Funcionalidades incluidas
 
-- Autenticación propia (registro, login, logout) con contraseña cifrada y sesión por JWT en cookie httpOnly. El primer usuario registrado queda como administrador.
-- Proyectos (tableros) con miembros invitados por email.
-- Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite.
+- Autenticación propia (registro, login, logout) con contraseña cifrada y sesión por JWT en cookie httpOnly. El primer usuario registrado queda como administrador; todos los siguientes necesitan un **código de invitación**.
+- Proyectos (tableros) con miembros que se agregan seleccionándolos de una lista (ya no hace falta escribir el email). El dueño puede editar el nombre y la descripción del proyecto en cualquier momento.
+- Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite. Al asignar (o reasignar) una tarea, la persona recibe automáticamente un aviso en su bandeja de entrada.
 - Tablero Kanban con arrastrar y soltar para cambiar el estado de una tarea.
 - Subida y descarga de archivos adjuntos por tarea (hasta 5MB por archivo, guardados en la base de datos para funcionar en la nube).
 - Bandeja de entrada por usuario: cualquier miembro puede enviar un "requerimiento" a otro (como un correo, con asunto y mensaje), con hilo de respuestas y estado (Abierto / En progreso / Cerrado) para trazabilidad completa.
 - **Gestión de usuarios** (solo administradores): crear y eliminar cuentas del equipo desde `/users`.
+- **Códigos de invitación** (solo administradores, también desde `/users`): generas un código de un solo uso (con rol miembro o administrador) y se lo compartes a quien quieras sumar; sin código válido no se puede crear una cuenta nueva.
 - **Informes** (`/reports`): resumen de tareas por estado, tareas vencidas, tabla detallada por proyecto y exportación a CSV / impresión.
 
 ## Stack técnico

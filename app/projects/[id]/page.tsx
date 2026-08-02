@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import KanbanBoard from "@/components/KanbanBoard";
 import AddMemberForm from "./AddMemberForm";
+import EditProjectForm from "./EditProjectForm";
 import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
@@ -51,7 +52,19 @@ export default async function ProjectPage({ params }: { params: { id: string } }
             Miembros: {project.members.map((m) => m.user.name).join(", ")}
           </p>
         </div>
-        {isOwner && <AddMemberForm projectId={project.id} />}
+        {isOwner && (
+          <div className="flex gap-2">
+            <EditProjectForm
+              projectId={project.id}
+              initialName={project.name}
+              initialDescription={project.description || ""}
+            />
+            <AddMemberForm
+              projectId={project.id}
+              existingMemberIds={project.members.map((m) => m.userId)}
+            />
+          </div>
+        )}
       </div>
 
       <KanbanBoard project={serialized} currentUserId={user.userId} />

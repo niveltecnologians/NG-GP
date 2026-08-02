@@ -12,8 +12,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Solo el dueño puede agregar miembros" }, { status: 403 });
   }
 
-  const { email } = await req.json();
-  const member = await prisma.user.findUnique({ where: { email } });
+  const { email, userId } = await req.json();
+  const member = userId
+    ? await prisma.user.findUnique({ where: { id: userId } })
+    : await prisma.user.findUnique({ where: { email } });
   if (!member) return NextResponse.json({ error: "No existe un usuario con ese email" }, { status: 404 });
 
   const existing = await prisma.projectMember.findUnique({

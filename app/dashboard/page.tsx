@@ -29,10 +29,10 @@ export default async function DashboardPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => (
-            <Link key={p.id} href={`/projects/${p.id}`} className="card p-5 hover:border-brand-400 hover:shadow-md transition">
+            <Link key={p.id} href={`/projects/${p.id}`} className="card p-5">
               <h2 className="font-semibold text-slate-900">{p.name}</h2>
               <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description || "Sin descripción"}</p>
-              <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+              <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-400">
                 <span>{p._count.tasks} tareas</span>
                 <span>{p.members.length} miembros</span>
               </div>
