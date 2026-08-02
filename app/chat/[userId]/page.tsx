@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -14,5 +15,9 @@ export default async function ChatConversationPage({ params }: { params: { userI
   });
   if (!membership) notFound();
 
-  return <ChatThread conversationId={conversationId} currentUserId={user.userId} />;
+  return (
+    <Suspense fallback={<div className="card flex h-[calc(100vh-140px)] items-center justify-center text-sm text-slate-400">Cargando...</div>}>
+      <ChatThread conversationId={conversationId} currentUserId={user.userId} />
+    </Suspense>
+  );
 }

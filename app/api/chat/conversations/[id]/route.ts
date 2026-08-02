@@ -39,11 +39,22 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   });
   if (!conversation) return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
 
-  const messages = await prisma.chatMessage.findMany({
-    where: { conversationId: params.id },
-    select: MESSAGE_SELECT,
-    orderBy: { createdAt: "asc" }
-  });
+  // Solo los mensajes "de canal" (sin parentMessageId); las respuestas de
+  // hilo se consultan aparte, en /threads/[messageId].
+  const [messages, replyCounts] = await Promise.all([
+    prisma.chatMessage.findMany({
+      where: { conversationId: params.id, parentMessageId: null },
+      select: MESSAGE_SELECT,
+      orderBy: { createdAt: "asc" }
+    }),
+    prisma.chatMessage.groupBy({
+      by: ["parentMessageId"],
+      where: { conversationId: params.id, parentMessageId: { not: null } },
+      _count: { _all: true }
+    })
+  ]);
+
+  const replyCountMap = new Map(replyCounts.map((r) => [r.parentMessageId as string, r._count._all]));
 
   await prisma.conversationMember.update({
     where: { conversationId_userId: { conversationId: params.id, userId: user.userId } },
@@ -61,7 +72,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         ? { id: others[0].id, bio: others[0].bio, hasAvatar: others[0].hasAvatar, online: isOnline(others[0].lastSeenAt) }
         : null,
     members: others.map((o) => ({ id: o.id, name: o.name, hasAvatar: o.hasAvatar, online: isOnline(o.lastSeenAt) })),
-    messages: messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }))
+    messages: messages.map((m) => ({
+      ...m,
+      createdAt: m.createdAt.toISOString(),
+      replyCount: replyCountMap.get(m.id) || 0
+    }))
   });
 }
 
@@ -75,21 +90,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const contentType = req.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    const { body } = await req.json();
+    const { body, parentMessageId } = await req.json();
     if (!body || !body.trim()) {
       return NextResponse.json({ error: "El mensaje no puede estar vacío" }, { status: 400 });
     }
     const message = await prisma.chatMessage.create({
-      data: { type: "TEXT", body: body.trim(), senderId: user.userId, conversationId: params.id },
+      data: {
+        type: "TEXT",
+        body: body.trim(),
+        senderId: user.userId,
+        conversationId: params.id,
+        parentMessageId: parentMessageId || null
+      },
       select: MESSAGE_SELECT
     });
     await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
-    return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString() }, { status: 201 });
+    return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString(), replyCount: 0 }, { status: 201 });
   }
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const kind = (formData.get("kind") as string | null) || "FILE";
+  const parentMessageId = (formData.get("parentMessageId") as string | null) || null;
   if (!file) return NextResponse.json({ error: "No se envió ningún archivo" }, { status: 400 });
   if (file.size > MAX_SIZE) return NextResponse.json({ error: "El archivo supera los 8MB" }, { status: 413 });
 
@@ -101,6 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       type,
       senderId: user.userId,
       conversationId: params.id,
+      parentMessageId,
       fileData: buffer,
       fileName: file.name,
       fileMimeType: file.type || "application/octet-stream",
@@ -110,5 +133,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
 
-  return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString() }, { status: 201 });
+  return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString(), replyCount: 0 }, { status: 201 });
 }

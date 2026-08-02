@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import NewConversationModal from "./NewConversationModal";
 
 type Conversation = {
@@ -16,17 +16,50 @@ type Conversation = {
   lastMessage: { preview: string | null; createdAt: string; mine: boolean; senderName: string | null } | null;
 };
 
+type SearchResult = {
+  id: string;
+  body: string | null;
+  createdAt: string;
+  conversationId: string;
+  conversationName: string;
+  isThreadReply: boolean;
+  parentMessageId: string | null;
+  senderName: string;
+};
+
 export default function ChatSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     load();
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    const timeout = setTimeout(() => {
+      fetch(`/api/chat/search?q=${encodeURIComponent(q)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setResults(data);
+        })
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [query]);
 
   function load() {
     fetch("/api/chat/conversations")
@@ -36,6 +69,14 @@ export default function ChatSidebar() {
       })
       .finally(() => setLoading(false));
   }
+
+  function goToResult(r: SearchResult) {
+    const target = r.isThreadReply ? `/chat/${r.conversationId}?thread=${r.parentMessageId}` : `/chat/${r.conversationId}?m=${r.id}`;
+    setQuery("");
+    router.push(target);
+  }
+
+  const showingSearch = query.trim().length >= 2;
 
   return (
     <div className="card flex h-[calc(100vh-140px)] w-full flex-col overflow-hidden sm:w-72">
@@ -49,8 +90,42 @@ export default function ChatSidebar() {
           +
         </button>
       </div>
+
+      <div className="border-b border-slate-100 p-2">
+        <input
+          className="input"
+          placeholder="🔎 Buscar en el chat..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {showingSearch ? (
+          searching ? (
+            <p className="p-4 text-sm text-slate-400">Buscando...</p>
+          ) : results.length === 0 ? (
+            <p className="p-4 text-sm text-slate-400">Sin resultados para "{query}".</p>
+          ) : (
+            results.map((r) => (
+              <button
+                key={r.id}
+                onClick={() => goToResult(r)}
+                className="block w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="truncate text-sm font-medium text-slate-900">{r.conversationName}</p>
+                  <p className="shrink-0 text-[10px] text-slate-400">{new Date(r.createdAt).toLocaleDateString("es-ES")}</p>
+                </div>
+                <p className="truncate text-xs text-slate-500">
+                  <span className="font-medium">{r.senderName}: </span>
+                  {r.body}
+                  {r.isThreadReply && <span className="ml-1 text-slate-400">(en un hilo)</span>}
+                </p>
+              </button>
+            ))
+          )
+        ) : loading ? (
           <p className="p-4 text-sm text-slate-400">Cargando...</p>
         ) : conversations.length === 0 ? (
           <p className="p-4 text-sm text-slate-400">Todavía no tienes conversaciones. Crea una con el botón +.</p>

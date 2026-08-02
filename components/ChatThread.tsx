@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import ThreadPanel from "./ThreadPanel";
 
 type Member = { id: string; name: string; hasAvatar: boolean; online: boolean };
 
@@ -22,9 +24,14 @@ type Message = {
   senderId: string | null;
   sender: { id: string; name: string; hasAvatar: boolean } | null;
   createdAt: string;
+  replyCount: number;
 };
 
 export default function ChatThread({ currentUserId, conversationId }: { currentUserId: string; conversationId: string }) {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("m");
+  const openThreadFor = searchParams.get("thread");
+
   const [info, setInfo] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -32,6 +39,8 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [threadMessageId, setThreadMessageId] = useState<string | null>(openThreadFor);
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +55,16 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
   }, [conversationId]);
 
   useEffect(() => {
+    if (threadMessageId) return; // no autoscroll mientras hay un hilo abierto
+    if (highlightId && messages.some((m) => m.id === highlightId)) {
+      const el = document.getElementById(`msg-${highlightId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashId(highlightId);
+      const t = setTimeout(() => setFlashId(null), 2500);
+      return () => clearTimeout(t);
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
   function load() {
@@ -193,11 +211,11 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
           messages.map((m) => {
             const mine = m.senderId === currentUserId;
             return (
-              <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div key={m.id} id={`msg-${m.id}`} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
                 <div
-                  className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
+                  className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm transition ${
                     mine ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-900"
-                  }`}
+                  } ${flashId === m.id ? "ring-2 ring-amber-400" : ""}`}
                 >
                   {info.isGroup && !mine && (
                     <p className="mb-0.5 text-[11px] font-semibold text-brand-700">{m.sender?.name || "Usuario eliminado"}</p>
@@ -224,6 +242,12 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
                     {new Date(m.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
+                <button
+                  onClick={() => setThreadMessageId(m.id)}
+                  className="mt-0.5 px-1 text-[11px] text-slate-400 hover:text-brand-600 hover:underline"
+                >
+                  {m.replyCount > 0 ? `💬 ${m.replyCount} respuesta${m.replyCount === 1 ? "" : "s"}` : "Responder en hilo"}
+                </button>
               </div>
             );
           })
@@ -263,6 +287,18 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
           Enviar
         </button>
       </form>
+
+      {threadMessageId && (
+        <ThreadPanel
+          conversationId={conversationId}
+          currentUserId={currentUserId}
+          messageId={threadMessageId}
+          onClose={() => {
+            setThreadMessageId(null);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

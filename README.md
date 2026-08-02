@@ -23,6 +23,8 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 - **Informes** (`/reports`): resumen de tareas por estado, tareas vencidas, tabla detallada por proyecto y exportación a CSV / impresión.
 - **Perfil** (`/profile`): cada usuario edita su nombre, descripción/bio, sube su foto de perfil, cambia su contraseña, y personaliza el fondo de su propia pantalla (color o imagen) — esto último es privado, solo lo ve quien lo configura.
 - **Chat entre usuarios** (`/chat`): mensajería directa (1 a 1) y **grupal** entre personas registradas, con texto, imágenes, notas de voz (se graban desde el navegador) y archivos adjuntos. Muestra quién está **en línea** (punto verde) según la última vez que esa persona tuvo la app abierta. Se actualiza automáticamente cada pocos segundos, con contador de mensajes sin leer por conversación.
+- **Hilos de conversación**: cualquier mensaje del chat se puede responder en un hilo aparte (como en Slack), sin llenar el canal principal. El botón "Responder en hilo" bajo cada mensaje abre un panel con esas respuestas.
+- **Buscador de palabras clave en el chat**: campo de búsqueda en la barra lateral que busca en todos tus mensajes (de canal y de hilos), en todas tus conversaciones; al hacer clic en un resultado te lleva directo a ese mensaje.
 
 ## Stack técnico
 

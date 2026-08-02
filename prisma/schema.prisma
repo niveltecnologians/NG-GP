@@ -199,6 +199,13 @@ model ChatMessage {
   conversationId String?
   conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  // Si no es null, este mensaje es una respuesta dentro del hilo de otro
+  // mensaje (como los hilos de Slack). Los mensajes "normales" del canal
+  // tienen parentMessageId = null.
+  parentMessageId String?
+  parentMessage   ChatMessage?  @relation("MessageReplies", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies         ChatMessage[] @relation("MessageReplies")
+
   senderId    String?
   sender      User?           @relation("ChatSender", fields: [senderId], references: [id], onDelete: SetNull)
 
@@ -214,6 +221,7 @@ model ChatMessage {
   @@index([senderId, recipientId])
   @@index([recipientId, senderId])
   @@index([conversationId])
+  @@index([parentMessageId])
 }
 
 model Conversation {
