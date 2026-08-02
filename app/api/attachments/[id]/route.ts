@@ -30,10 +30,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const attachment = await prisma.attachment.findUnique({ where: { id: params.id } });
+  const attachment = await prisma.attachment.findUnique({
+    where: { id: params.id },
+    include: { task: { include: { project: true } } }
+  });
   if (!attachment) return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
-  if (attachment.uploadedById !== user.userId) {
-    return NextResponse.json({ error: "Solo quien subió el archivo puede eliminarlo" }, { status: 403 });
+
+  const canDelete =
+    attachment.uploadedById === user.userId ||
+    attachment.task.project.ownerId === user.userId ||
+    user.role === "ADMIN";
+  if (!canDelete) {
+    return NextResponse.json(
+      { error: "Solo quien subió el archivo, el dueño del proyecto o un administrador pueden eliminarlo" },
+      { status: 403 }
+    );
   }
 
   await prisma.attachment.delete({ where: { id: params.id } });

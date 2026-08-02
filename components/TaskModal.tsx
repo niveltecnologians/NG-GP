@@ -79,6 +79,21 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
     }
   }
 
+  async function handleDeleteAttachment(attachmentId: string) {
+    if (!current) return;
+    if (!confirm("¿Eliminar este archivo? Esta acción no se puede deshacer.")) return;
+    const res = await fetch(`/api/attachments/${attachmentId}`, { method: "DELETE" });
+    if (res.ok) {
+      const updatedAttachments = current.attachments.filter((a) => a.id !== attachmentId);
+      const updatedTask = { ...current, attachments: updatedAttachments };
+      setCurrent(updatedTask);
+      onSaved(updatedTask);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "No se pudo eliminar el archivo");
+    }
+  }
+
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!current || !e.target.files?.length) return;
     setUploading(true);
@@ -158,11 +173,20 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
             <div className="space-y-2">
               <ul className="space-y-1">
                 {current.attachments.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between rounded-md border border-slate-200 px-2 py-1 text-sm">
-                    <span className="truncate">{a.filename}</span>
-                    <a href={`/api/attachments/${a.id}`} className="text-brand-600 hover:underline" download>
-                      Descargar
-                    </a>
+                  <li key={a.id} className="flex items-center justify-between gap-2 rounded-md border border-slate-200 px-2 py-1 text-sm">
+                    <span className="truncate" title={a.filename}>{a.filename}</span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <a href={`/api/attachments/${a.id}`} className="text-brand-600 hover:underline" download>
+                        Descargar
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(a.id)}
+                        className="text-red-600 hover:underline"
+                      >
+                        Eliminar
+                      </button>
+                    </span>
                   </li>
                 ))}
                 {current.attachments.length === 0 && <li className="text-xs text-slate-400">Sin archivos aún</li>}
