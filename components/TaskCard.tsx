@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Task, PRIORITY_COLORS, PRIORITY_LABELS } from "@/lib/types";
 
 export default function TaskCard({
@@ -11,6 +12,7 @@ export default function TaskCard({
   onClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
 }) {
+  const [avatarError, setAvatarError] = useState(false);
   const initials = task.assignee ? task.assignee.name.slice(0, 2).toUpperCase() : "—";
   const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
 
@@ -23,12 +25,22 @@ export default function TaskCard({
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-900 group-hover:text-brand-700">{task.title}</p>
-        <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700"
-          title={task.assignee?.name || "Sin asignar"}
-        >
-          {initials}
-        </span>
+        {task.assignee && !avatarError ? (
+          <img
+            src={`/api/users/${task.assignee.id}/avatar`}
+            alt={task.assignee.name}
+            title={task.assignee.name}
+            onError={() => setAvatarError(true)}
+            className="h-6 w-6 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <span
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700"
+            title={task.assignee?.name || "Sin asignar"}
+          >
+            {initials}
+          </span>
+        )}
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className={`badge ${PRIORITY_COLORS[task.priority]}`}>{PRIORITY_LABELS[task.priority]}</span>

@@ -32,6 +32,13 @@ enum TicketStatus {
   CLOSED
 }
 
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  FILE
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -39,6 +46,16 @@ model User {
   passwordHash  String
   role          Role     @default(MEMBER)
   createdAt     DateTime @default(now())
+
+  // Perfil
+  bio                 String?
+  avatarData          Bytes?
+  avatarMimeType      String?
+  hasAvatar           Boolean @default(false)
+  backgroundColor     String?
+  backgroundData      Bytes?
+  backgroundMimeType  String?
+  hasBackgroundImage  Boolean @default(false)
 
   ownedProjects   Project[]       @relation("ProjectOwner")
   memberships     ProjectMember[]
@@ -50,6 +67,8 @@ model User {
   replies         TicketReply[]
   invitesCreated  InviteCode[]    @relation("InviteCreator")
   invitesUsed     InviteCode[]    @relation("InviteUsedBy")
+  chatsSent       ChatMessage[]   @relation("ChatSender")
+  chatsReceived   ChatMessage[]   @relation("ChatRecipient")
 }
 
 model InviteCode {
@@ -158,4 +177,27 @@ model TicketReply {
   author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id          String          @id @default(cuid())
+  type        ChatMessageType @default(TEXT)
+  body        String?
+
+  fileData     Bytes?
+  fileName     String?
+  fileMimeType String?
+  fileSize     Int?
+
+  senderId    String?
+  sender      User?           @relation("ChatSender", fields: [senderId], references: [id], onDelete: SetNull)
+
+  recipientId String?
+  recipient   User?           @relation("ChatRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+
+  readAt      DateTime?
+  createdAt   DateTime        @default(now())
+
+  @@index([senderId, recipientId])
+  @@index([recipientId, senderId])
 }

@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
+
+const MAX_SIZE = 3 * 1024 * 1024; // 3MB
+
+export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const formData = await req.formData();
+  const file = formData.get("file") as File | null;
+  if (!file) return NextResponse.json({ error: "No se envió ninguna imagen" }, { status: 400 });
+  if (!file.type.startsWith("image/")) {
+    return NextResponse.json({ error: "El archivo debe ser una imagen" }, { status: 400 });
+  }
+  if (file.size > MAX_SIZE) return NextResponse.json({ error: "La imagen supera los 3MB" }, { status: 413 });
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  await prisma.user.update({
+    where: { id: user.userId },
+    data: { avatarData: buffer, avatarMimeType: file.type, hasAvatar: true }
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  await prisma.user.update({
+    where: { id: user.userId },
+    data: { avatarData: null, avatarMimeType: null, hasAvatar: false }
+  });
+
+  return NextResponse.json({ ok: true });
+}

@@ -4,7 +4,7 @@ MVP funcional de una plataforma de gestión de proyectos y tareas, con base de d
 
 ## Actualizar un despliegue que ya tiene datos
 
-Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (solo agregan la tabla nueva de códigos de invitación), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
+Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (agregan columnas nuevas a `User` para el perfil/personalización, y la tabla nueva de mensajes de chat), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
 
 ## Referentes investigados
 
@@ -21,6 +21,8 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 - **Gestión de usuarios** (solo administradores): crear y eliminar cuentas del equipo desde `/users`.
 - **Códigos de invitación** (solo administradores, también desde `/users`): generas un código de un solo uso (con rol miembro o administrador) y se lo compartes a quien quieras sumar; sin código válido no se puede crear una cuenta nueva.
 - **Informes** (`/reports`): resumen de tareas por estado, tareas vencidas, tabla detallada por proyecto y exportación a CSV / impresión.
+- **Perfil** (`/profile`): cada usuario edita su nombre, descripción/bio, sube su foto de perfil, cambia su contraseña, y personaliza el fondo de su propia pantalla (color o imagen) — esto último es privado, solo lo ve quien lo configura.
+- **Chat entre usuarios** (`/chat`): mensajería directa entre cualquier par de personas registradas, con texto, imágenes, notas de voz (se graban desde el navegador) y archivos adjuntos. Se actualiza automáticamente cada pocos segundos, con contador de mensajes sin leer por contacto.
 
 ## Stack técnico
 
@@ -120,3 +122,6 @@ git push -u origin main
 - No hay recuperación de contraseña por email todavía.
 - El drag-and-drop del Kanban usa la API nativa del navegador (sin librería externa), funciona bien en escritorio pero no está optimizado para móvil.
 - `prisma db push` (usado en el build automático) sincroniza el esquema directamente; para un equipo grande con cambios de esquema frecuentes, conviene migrar más adelante a `prisma migrate` con historial de migraciones.
+- El chat se actualiza revisando cada 3-5 segundos (no es una conexión en vivo tipo WhatsApp/Slack); para un chat instantáneo real habría que sumar un servicio de tiempo real (Pusher, Ably, Supabase Realtime), lo cual implica otra cuenta/configuración externa.
+- Los mensajes de audio del chat (hasta 8MB) usan la grabación nativa del navegador; funciona bien en Chrome/Edge/Firefox. En Safari/iOS el soporte de grabación de audio puede ser más limitado según la versión.
+- La imagen de fondo personalizada del perfil es privada (solo la ve quien la configuró); no se comparte con el resto del equipo.

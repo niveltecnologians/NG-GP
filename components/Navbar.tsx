@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionPayload } from "@/lib/auth";
@@ -7,6 +8,7 @@ import type { SessionPayload } from "@/lib/auth";
 export default function Navbar({ user }: { user: SessionPayload }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [avatarError, setAvatarError] = useState(false);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -17,6 +19,7 @@ export default function Navbar({ user }: { user: SessionPayload }) {
   const links = [
     { href: "/dashboard", label: "Proyectos" },
     { href: "/inbox", label: "Bandeja de entrada" },
+    { href: "/chat", label: "Chat" },
     { href: "/reports", label: "Informes" },
     ...(user.role === "ADMIN" ? [{ href: "/users", label: "Usuarios" }] : [])
   ];
@@ -56,15 +59,24 @@ export default function Navbar({ user }: { user: SessionPayload }) {
           </nav>
         </div>
         <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 sm:flex">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
-              {initials}
-            </span>
+          <Link href="/profile" className="hidden items-center gap-2 sm:flex">
+            {!avatarError ? (
+              <img
+                src={`/api/users/${user.userId}/avatar`}
+                alt={user.name}
+                onError={() => setAvatarError(true)}
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
+                {initials}
+              </span>
+            )}
             <div className="text-sm leading-tight">
               <div className="font-medium text-slate-900">{user.name}</div>
               <div className="text-xs text-slate-400">{user.role === "ADMIN" ? "Administrador" : "Miembro"}</div>
             </div>
-          </div>
+          </Link>
           <button onClick={handleLogout} className="btn-secondary py-1.5">
             Cerrar sesión
           </button>
