@@ -57,18 +57,23 @@ model User {
   backgroundMimeType  String?
   hasBackgroundImage  Boolean @default(false)
 
-  ownedProjects   Project[]       @relation("ProjectOwner")
-  memberships     ProjectMember[]
-  tasksAssigned   Task[]          @relation("TaskAssignee")
-  tasksCreated    Task[]          @relation("TaskCreator")
-  attachments     Attachment[]
-  ticketsSent     Ticket[]        @relation("TicketSender")
-  ticketsReceived Ticket[]        @relation("TicketRecipient")
-  replies         TicketReply[]
-  invitesCreated  InviteCode[]    @relation("InviteCreator")
-  invitesUsed     InviteCode[]    @relation("InviteUsedBy")
-  chatsSent       ChatMessage[]   @relation("ChatSender")
-  chatsReceived   ChatMessage[]   @relation("ChatRecipient")
+  // Presencia (para mostrar "en línea")
+  lastSeenAt          DateTime?
+
+  ownedProjects        Project[]            @relation("ProjectOwner")
+  memberships          ProjectMember[]
+  tasksAssigned        Task[]               @relation("TaskAssignee")
+  tasksCreated         Task[]               @relation("TaskCreator")
+  attachments          Attachment[]
+  ticketsSent          Ticket[]             @relation("TicketSender")
+  ticketsReceived      Ticket[]             @relation("TicketRecipient")
+  replies              TicketReply[]
+  invitesCreated       InviteCode[]         @relation("InviteCreator")
+  invitesUsed          InviteCode[]         @relation("InviteUsedBy")
+  chatsSent            ChatMessage[]        @relation("ChatSender")
+  chatsReceived        ChatMessage[]        @relation("ChatRecipient")
+  conversationsCreated Conversation[]       @relation("ConversationCreator")
+  conversations        ConversationMember[]
 }
 
 model InviteCode {
@@ -189,15 +194,51 @@ model ChatMessage {
   fileMimeType String?
   fileSize     Int?
 
+  // Conversación a la que pertenece (1 a 1 o grupal). Los mensajes nuevos
+  // siempre la tienen; ver más abajo cómo se adoptan los mensajes antiguos.
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
   senderId    String?
   sender      User?           @relation("ChatSender", fields: [senderId], references: [id], onDelete: SetNull)
 
+  // Campos originales de la primera versión del chat (solo 1 a 1, sin
+  // grupos). Se conservan para no perder el historial de mensajes ya
+  // enviados; los mensajes nuevos usan conversationId en su lugar.
   recipientId String?
   recipient   User?           @relation("ChatRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
-
   readAt      DateTime?
+
   createdAt   DateTime        @default(now())
 
   @@index([senderId, recipientId])
   @@index([recipientId, senderId])
+  @@index([conversationId])
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  isGroup     Boolean  @default(false)
+  name        String?  // solo se usa en grupos
+
+  createdById String?
+  createdBy   User?    @relation("ConversationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  members     ConversationMember[]
+  messages    ChatMessage[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  joinedAt       DateTime     @default(now())
+
+  @@unique([conversationId, userId])
 }

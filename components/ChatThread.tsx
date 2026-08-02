@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Other = { id: string; name: string; email: string; bio: string | null; hasAvatar: boolean };
+type Member = { id: string; name: string; hasAvatar: boolean; online: boolean };
+
+type ConversationInfo = {
+  id: string;
+  isGroup: boolean;
+  name: string;
+  otherUser: { id: string; bio: string | null; hasAvatar: boolean; online: boolean } | null;
+  members: Member[];
+};
 
 type Message = {
   id: string;
@@ -12,12 +20,12 @@ type Message = {
   fileMimeType: string | null;
   fileSize: number | null;
   senderId: string | null;
-  recipientId: string | null;
-  readAt: string | null;
+  sender: { id: string; name: string; hasAvatar: boolean } | null;
   createdAt: string;
 };
 
-export default function ChatThread({ currentUserId, other }: { currentUserId: string; other: Other }) {
+export default function ChatThread({ currentUserId, conversationId }: { currentUserId: string; conversationId: string }) {
+  const [info, setInfo] = useState<ConversationInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -35,17 +43,20 @@ export default function ChatThread({ currentUserId, other }: { currentUserId: st
     const interval = setInterval(load, 3000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [other.id]);
+  }, [conversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
   function load() {
-    fetch(`/api/chat/${other.id}`)
+    fetch(`/api/chat/conversations/${conversationId}`)
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setMessages(data);
+        if (data && data.messages) {
+          setInfo(data);
+          setMessages(data.messages);
+        }
       })
       .finally(() => setLoading(false));
   }
@@ -55,7 +66,7 @@ export default function ChatThread({ currentUserId, other }: { currentUserId: st
     if (!text.trim()) return;
     setSending(true);
     setError(null);
-    const res = await fetch(`/api/chat/${other.id}`, {
+    const res = await fetch(`/api/chat/conversations/${conversationId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: text })
@@ -77,7 +88,7 @@ export default function ChatThread({ currentUserId, other }: { currentUserId: st
     const form = new FormData();
     form.append("file", file);
     form.append("kind", kind);
-    const res = await fetch(`/api/chat/${other.id}`, { method: "POST", body: form });
+    const res = await fetch(`/api/chat/conversations/${conversationId}`, { method: "POST", body: form });
     setSending(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -125,8 +136,6 @@ export default function ChatThread({ currentUserId, other }: { currentUserId: st
     }
   }
 
-  const initials = other.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
-
   function formatSize(bytes: number | null) {
     if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
@@ -134,26 +143,51 @@ export default function ChatThread({ currentUserId, other }: { currentUserId: st
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  if (!info && loading) {
+    return <div className="card flex h-[calc(100vh-140px)] items-center justify-center text-sm text-slate-400">Cargando...</div>;
+  }
+  if (!info) {
+    return <div className="card flex h-[calc(100vh-140px)] items-center justify-center text-sm text-slate-400">Conversación no encontrada.</div>;
+  }
+
+  const initials = info.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+  const onlineMembersCount = info.members.filter((m) => m.online).length;
+
   return (
     <div className="card flex h-[calc(100vh-140px)] flex-col overflow-hidden">
       <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-        {other.hasAvatar ? (
-          <img src={`/api/users/${other.id}/avatar`} alt={other.name} className="h-9 w-9 rounded-full object-cover" />
-        ) : (
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
-            {initials}
-          </div>
-        )}
+        <div className="relative shrink-0">
+          {!info.isGroup && info.otherUser?.hasAvatar ? (
+            <img src={`/api/users/${info.otherUser.id}/avatar`} alt={info.name} className="h-9 w-9 rounded-full object-cover" />
+          ) : (
+            <div
+              className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${
+                info.isGroup ? "bg-slate-200 text-slate-600" : "bg-brand-100 text-brand-700"
+              }`}
+            >
+              {info.isGroup ? "👥" : initials}
+            </div>
+          )}
+          {!info.isGroup && info.otherUser?.online && (
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+          )}
+        </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">{other.name}</p>
-          {other.bio && <p className="truncate text-xs text-slate-400">{other.bio}</p>}
+          <p className="truncate text-sm font-semibold text-slate-900">{info.name}</p>
+          {info.isGroup ? (
+            <p className="truncate text-xs text-slate-400">
+              {info.members.length + 1} miembros{onlineMembersCount > 0 ? ` · ${onlineMembersCount} en línea` : ""}
+            </p>
+          ) : (
+            <p className="truncate text-xs text-slate-400">
+              {info.otherUser?.online ? "En línea" : info.otherUser?.bio || "Desconectado"}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
-        {loading ? (
-          <p className="text-center text-sm text-slate-400">Cargando...</p>
-        ) : messages.length === 0 ? (
+        {messages.length === 0 ? (
           <p className="text-center text-sm text-slate-400">Todavía no hay mensajes. ¡Saluda!</p>
         ) : (
           messages.map((m) => {
@@ -165,6 +199,9 @@ export default function ChatThread({ currentUserId, other }: { currentUserId: st
                     mine ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-900"
                   }`}
                 >
+                  {info.isGroup && !mine && (
+                    <p className="mb-0.5 text-[11px] font-semibold text-brand-700">{m.sender?.name || "Usuario eliminado"}</p>
+                  )}
                   {m.type === "TEXT" && <p className="whitespace-pre-wrap">{m.body}</p>}
                   {m.type === "IMAGE" && (
                     <a href={`/api/chat/messages/${m.id}`} target="_blank" rel="noreferrer">

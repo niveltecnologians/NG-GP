@@ -9,7 +9,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const message = await prisma.chatMessage.findUnique({ where: { id: params.id } });
   if (!message) return NextResponse.json({ error: "Mensaje no encontrado" }, { status: 404 });
 
-  const isParticipant = message.senderId === user.userId || message.recipientId === user.userId;
+  let isParticipant = message.senderId === user.userId || message.recipientId === user.userId;
+  if (!isParticipant && message.conversationId) {
+    const membership = await prisma.conversationMember.findUnique({
+      where: { conversationId_userId: { conversationId: message.conversationId, userId: user.userId } }
+    });
+    isParticipant = !!membership;
+  }
   if (!isParticipant) return NextResponse.json({ error: "No tienes acceso a este archivo" }, { status: 403 });
 
   if (!message.fileData || !message.fileMimeType) {

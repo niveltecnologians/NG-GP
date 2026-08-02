@@ -3,6 +3,7 @@ import "./globals.css";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import Navbar from "@/components/Navbar";
+import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 
 export const metadata: Metadata = {
   title: "Gestor de Proyectos",
@@ -32,6 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es">
       <body className={bodyClassName} style={bodyStyle}>
+        {user && <PresenceHeartbeat />}
         {user && <Navbar user={user} />}
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
       </body>

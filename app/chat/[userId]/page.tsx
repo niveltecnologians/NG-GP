@@ -3,15 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import ChatThread from "@/components/ChatThread";
 
-export default async function ChatWithUserPage({ params }: { params: { userId: string } }) {
+// Nota: la carpeta se llama "[userId]" por razones históricas, pero el
+// parámetro que recibe ahora es el id de una conversación (1 a 1 o grupal).
+export default async function ChatConversationPage({ params }: { params: { userId: string } }) {
   const user = await requireUser();
-  if (params.userId === user.userId) notFound();
+  const conversationId = params.userId;
 
-  const other = await prisma.user.findUnique({
-    where: { id: params.userId },
-    select: { id: true, name: true, email: true, bio: true, hasAvatar: true }
+  const membership = await prisma.conversationMember.findUnique({
+    where: { conversationId_userId: { conversationId, userId: user.userId } }
   });
-  if (!other) notFound();
+  if (!membership) notFound();
 
-  return <ChatThread currentUserId={user.userId} other={other} />;
+  return <ChatThread conversationId={conversationId} currentUserId={user.userId} />;
 }

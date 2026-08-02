@@ -3,20 +3,24 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import NewConversationModal from "./NewConversationModal";
 
-type Contact = {
+type Conversation = {
   id: string;
+  isGroup: boolean;
   name: string;
-  email: string;
-  hasAvatar: boolean;
+  memberCount: number;
+  otherUser: { id: string; hasAvatar: boolean } | null;
+  online: boolean | number;
   unreadCount: number;
-  lastMessage: { preview: string | null; createdAt: string; mine: boolean } | null;
+  lastMessage: { preview: string | null; createdAt: string; mine: boolean; senderName: string | null } | null;
 };
 
 export default function ChatSidebar() {
   const pathname = usePathname();
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     load();
@@ -25,24 +29,33 @@ export default function ChatSidebar() {
   }, []);
 
   function load() {
-    fetch("/api/chat/contacts")
+    fetch("/api/chat/conversations")
       .then((r) => r.json())
-      .then((data) => setContacts(data))
+      .then((data) => {
+        if (Array.isArray(data)) setConversations(data);
+      })
       .finally(() => setLoading(false));
   }
 
   return (
     <div className="card flex h-[calc(100vh-140px)] w-full flex-col overflow-hidden sm:w-72">
-      <div className="border-b border-slate-100 px-4 py-3">
-        <h2 className="font-semibold text-slate-900">Chat</h2>
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+        <h2 className="font-semibold text-slate-900">Conversaciones</h2>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-sm text-white hover:bg-brand-700"
+          title="Nueva conversación"
+        >
+          +
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <p className="p-4 text-sm text-slate-400">Cargando...</p>
-        ) : contacts.length === 0 ? (
-          <p className="p-4 text-sm text-slate-400">No hay otros usuarios registrados todavía.</p>
+        ) : conversations.length === 0 ? (
+          <p className="p-4 text-sm text-slate-400">Todavía no tienes conversaciones. Crea una con el botón +.</p>
         ) : (
-          contacts.map((c) => {
+          conversations.map((c) => {
             const active = pathname === `/chat/${c.id}`;
             const initials = c.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
             return (
@@ -53,13 +66,22 @@ export default function ChatSidebar() {
                   active ? "bg-brand-50" : ""
                 }`}
               >
-                {c.hasAvatar ? (
-                  <img src={`/api/users/${c.id}/avatar`} alt={c.name} className="h-9 w-9 shrink-0 rounded-full object-cover" />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-semibold text-brand-700">
-                    {initials}
-                  </div>
-                )}
+                <div className="relative shrink-0">
+                  {!c.isGroup && c.otherUser?.hasAvatar ? (
+                    <img src={`/api/users/${c.otherUser.id}/avatar`} alt={c.name} className="h-9 w-9 rounded-full object-cover" />
+                  ) : (
+                    <div
+                      className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${
+                        c.isGroup ? "bg-slate-200 text-slate-600" : "bg-brand-100 text-brand-700"
+                      }`}
+                    >
+                      {c.isGroup ? "👥" : initials}
+                    </div>
+                  )}
+                  {!c.isGroup && c.online === true && (
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-sm font-medium text-slate-900">{c.name}</p>
@@ -70,7 +92,10 @@ export default function ChatSidebar() {
                     )}
                   </div>
                   <p className="truncate text-xs text-slate-400">
-                    {c.lastMessage ? `${c.lastMessage.mine ? "Tú: " : ""}${c.lastMessage.preview}` : "Sin mensajes todavía"}
+                    {c.isGroup && typeof c.online === "number" && c.online > 0 ? `${c.online} en línea · ` : ""}
+                    {c.lastMessage
+                      ? `${c.lastMessage.mine ? "Tú: " : c.isGroup && c.lastMessage.senderName ? `${c.lastMessage.senderName}: ` : ""}${c.lastMessage.preview}`
+                      : "Sin mensajes todavía"}
                   </p>
                 </div>
               </Link>
@@ -78,6 +103,8 @@ export default function ChatSidebar() {
           })
         )}
       </div>
+
+      {showModal && <NewConversationModal onClose={() => { setShowModal(false); load(); }} />}
     </div>
   );
 }

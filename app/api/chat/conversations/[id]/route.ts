@@ -1,0 +1,114 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
+import { isOnline } from "@/lib/presence";
+
+const MESSAGE_SELECT = {
+  id: true,
+  type: true,
+  body: true,
+  fileName: true,
+  fileMimeType: true,
+  fileSize: true,
+  senderId: true,
+  createdAt: true,
+  sender: { select: { id: true, name: true, hasAvatar: true } }
+} as const;
+
+const MAX_SIZE = 8 * 1024 * 1024; // 8MB
+
+async function assertMembership(conversationId: string, userId: string) {
+  const membership = await prisma.conversationMember.findUnique({
+    where: { conversationId_userId: { conversationId, userId } }
+  });
+  return !!membership;
+}
+
+export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const isMember = await assertMembership(params.id, user.userId);
+  if (!isMember) return NextResponse.json({ error: "No tienes acceso a esta conversación" }, { status: 403 });
+
+  const conversation = await prisma.conversation.findUnique({
+    where: { id: params.id },
+    include: {
+      members: { include: { user: { select: { id: true, name: true, bio: true, hasAvatar: true, lastSeenAt: true } } } }
+    }
+  });
+  if (!conversation) return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
+
+  const messages = await prisma.chatMessage.findMany({
+    where: { conversationId: params.id },
+    select: MESSAGE_SELECT,
+    orderBy: { createdAt: "asc" }
+  });
+
+  await prisma.conversationMember.update({
+    where: { conversationId_userId: { conversationId: params.id, userId: user.userId } },
+    data: { lastReadAt: new Date() }
+  });
+
+  const others = conversation.members.filter((m) => m.userId !== user.userId).map((m) => m.user);
+
+  return NextResponse.json({
+    id: conversation.id,
+    isGroup: conversation.isGroup,
+    name: conversation.isGroup ? conversation.name || others.map((o) => o.name).join(", ") : others[0]?.name || "Usuario eliminado",
+    otherUser:
+      !conversation.isGroup && others[0]
+        ? { id: others[0].id, bio: others[0].bio, hasAvatar: others[0].hasAvatar, online: isOnline(others[0].lastSeenAt) }
+        : null,
+    members: others.map((o) => ({ id: o.id, name: o.name, hasAvatar: o.hasAvatar, online: isOnline(o.lastSeenAt) })),
+    messages: messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }))
+  });
+}
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const isMember = await assertMembership(params.id, user.userId);
+  if (!isMember) return NextResponse.json({ error: "No tienes acceso a esta conversación" }, { status: 403 });
+
+  const contentType = req.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    const { body } = await req.json();
+    if (!body || !body.trim()) {
+      return NextResponse.json({ error: "El mensaje no puede estar vacío" }, { status: 400 });
+    }
+    const message = await prisma.chatMessage.create({
+      data: { type: "TEXT", body: body.trim(), senderId: user.userId, conversationId: params.id },
+      select: MESSAGE_SELECT
+    });
+    await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
+    return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString() }, { status: 201 });
+  }
+
+  const formData = await req.formData();
+  const file = formData.get("file") as File | null;
+  const kind = (formData.get("kind") as string | null) || "FILE";
+  if (!file) return NextResponse.json({ error: "No se envió ningún archivo" }, { status: 400 });
+  if (file.size > MAX_SIZE) return NextResponse.json({ error: "El archivo supera los 8MB" }, { status: 413 });
+
+  const type: "IMAGE" | "AUDIO" | "FILE" = kind === "IMAGE" ? "IMAGE" : kind === "AUDIO" ? "AUDIO" : "FILE";
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const message = await prisma.chatMessage.create({
+    data: {
+      type,
+      senderId: user.userId,
+      conversationId: params.id,
+      fileData: buffer,
+      fileName: file.name,
+      fileMimeType: file.type || "application/octet-stream",
+      fileSize: file.size
+    },
+    select: MESSAGE_SELECT
+  });
+  await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
+
+  return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString() }, { status: 201 });
+}
