@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { renderWithMentions } from "./mentions";
 
 type Sender = { id: string; name: string; hasAvatar: boolean } | null;
 
@@ -23,10 +24,10 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function MessageBody({ m, mine }: { m: Message; mine: boolean }) {
+function MessageBody({ m, mine, memberNames }: { m: Message; mine: boolean; memberNames: string[] }) {
   return (
     <>
-      {m.type === "TEXT" && <p className="whitespace-pre-wrap">{m.body}</p>}
+      {m.type === "TEXT" && <p className="whitespace-pre-wrap">{renderWithMentions(m.body || "", memberNames)}</p>}
       {m.type === "IMAGE" && (
         <a href={`/api/chat/messages/${m.id}`} target="_blank" rel="noreferrer">
           <img src={`/api/chat/messages/${m.id}`} alt={m.fileName || "imagen"} className="max-h-48 rounded-lg" />
@@ -50,11 +51,15 @@ export default function ThreadPanel({
   conversationId,
   currentUserId,
   messageId,
+  memberNames,
+  isGroup,
   onClose
 }: {
   conversationId: string;
   currentUserId: string;
   messageId: string;
+  memberNames: string[];
+  isGroup: boolean;
   onClose: () => void;
 }) {
   const [parent, setParent] = useState<Message | null>(null);
@@ -163,6 +168,16 @@ export default function ThreadPanel({
     }
   }
 
+  const mentionMatch = isGroup ? text.match(/@([^\s@]*)$/) : null;
+  const mentionQuery = mentionMatch ? mentionMatch[1].toLowerCase() : "";
+  const mentionCandidates = mentionMatch
+    ? memberNames.filter((n) => n.toLowerCase().includes(mentionQuery)).slice(0, 5)
+    : [];
+
+  function pickMention(name: string) {
+    setText((prev) => prev.replace(/@([^\s@]*)$/, `@${name} `));
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-end bg-black/20 sm:items-stretch" onClick={onClose}>
       <div
@@ -187,7 +202,7 @@ export default function ThreadPanel({
                 <p className="mb-0.5 text-[11px] font-semibold text-brand-700">
                   {parent.sender?.name || "Usuario eliminado"}
                 </p>
-                <MessageBody m={parent} mine={false} />
+                <MessageBody m={parent} mine={false} memberNames={memberNames} />
                 <p className="mt-1 text-[10px] text-slate-400">
                   {new Date(parent.createdAt).toLocaleString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                 </p>
@@ -204,7 +219,7 @@ export default function ThreadPanel({
                     <div key={r.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-900"}`}>
                         {!mine && <p className="mb-0.5 text-[11px] font-semibold text-brand-700">{r.sender?.name || "Usuario eliminado"}</p>}
-                        <MessageBody m={r} mine={mine} />
+                        <MessageBody m={r} mine={mine} memberNames={memberNames} />
                         <p className={`mt-1 text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>
                           {new Date(r.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                         </p>
@@ -220,7 +235,21 @@ export default function ThreadPanel({
 
         {error && <p className="px-4 pb-1 text-xs text-red-600">{error}</p>}
 
-        <form onSubmit={sendText} className="flex items-center gap-2 border-t border-slate-100 p-3">
+        <form onSubmit={sendText} className="relative flex items-center gap-2 border-t border-slate-100 p-3">
+          {mentionCandidates.length > 0 && (
+            <div className="absolute bottom-full left-3 mb-1 w-52 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel">
+              {mentionCandidates.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => pickMention(name)}
+                  className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                >
+                  @{name}
+                </button>
+              ))}
+            </div>
+          )}
           <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="btn-secondary px-2.5" disabled={sending}>
             📎

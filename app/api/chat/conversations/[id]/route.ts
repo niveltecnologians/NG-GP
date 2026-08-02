@@ -67,6 +67,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     id: conversation.id,
     isGroup: conversation.isGroup,
     name: conversation.isGroup ? conversation.name || others.map((o) => o.name).join(", ") : others[0]?.name || "Usuario eliminado",
+    isCreator: conversation.createdById === user.userId,
     otherUser:
       !conversation.isGroup && others[0]
         ? { id: others[0].id, bio: others[0].bio, hasAvatar: others[0].hasAvatar, online: isOnline(others[0].lastSeenAt) }
@@ -134,4 +135,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
 
   return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString(), replyCount: 0 }, { status: 201 });
+}
+
+// Elimina un grupo por completo (mensajes, hilos e integrantes incluidos).
+// Solo quien creó el grupo puede hacerlo. No aplica a conversaciones 1 a 1.
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const conversation = await prisma.conversation.findUnique({ where: { id: params.id } });
+  if (!conversation) return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
+  if (!conversation.isGroup) {
+    return NextResponse.json({ error: "Las conversaciones 1 a 1 no se pueden eliminar" }, { status: 400 });
+  }
+  if (conversation.createdById !== user.userId) {
+    return NextResponse.json({ error: "Solo quien creó el grupo puede eliminarlo" }, { status: 403 });
+  }
+
+  await prisma.conversation.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
 }

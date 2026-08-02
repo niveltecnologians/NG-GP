@@ -23,7 +23,9 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 - **Informes** (`/reports`): resumen de tareas por estado, tareas vencidas, tabla detallada por proyecto y exportación a CSV / impresión.
 - **Perfil** (`/profile`): cada usuario edita su nombre, descripción/bio, sube su foto de perfil, cambia su contraseña, y personaliza el fondo de su propia pantalla (color o imagen) — esto último es privado, solo lo ve quien lo configura.
 - **Chat entre usuarios** (`/chat`): mensajería directa (1 a 1) y **grupal** entre personas registradas, con texto, imágenes, notas de voz (se graban desde el navegador) y archivos adjuntos. Muestra quién está **en línea** (punto verde) según la última vez que esa persona tuvo la app abierta. Se actualiza automáticamente cada pocos segundos, con contador de mensajes sin leer por conversación.
-- **Hilos de conversación**: cualquier mensaje del chat se puede responder en un hilo aparte (como en Slack), sin llenar el canal principal. El botón "Responder en hilo" bajo cada mensaje abre un panel con esas respuestas.
+- **Hilos de conversación**: cualquier mensaje del chat se puede responder en un hilo aparte (como en Slack), sin llenar el canal principal. El botón "💬 Responder en hilo" bajo cada mensaje abre un panel con esas respuestas; si ya tiene respuestas, muestra el contador.
+- **Gestión de grupos**: desde el botón "Miembros" en el encabezado de un grupo se puede agregar gente nueva, quitar miembros (solo quien creó el grupo), salir del grupo, o eliminarlo por completo (solo el creador).
+- **Menciones con @**: al escribir "@" dentro de un grupo aparece un menú para elegir a la persona; su nombre queda resaltado en el mensaje para todos.
 - **Buscador de palabras clave en el chat**: campo de búsqueda en la barra lateral que busca en todos tus mensajes (de canal y de hilos), en todas tus conversaciones; al hacer clic en un resultado te lleva directo a ese mensaje.
 
 ## Stack técnico
@@ -126,6 +128,7 @@ git push -u origin main
 - `prisma db push` (usado en el build automático) sincroniza el esquema directamente; para un equipo grande con cambios de esquema frecuentes, conviene migrar más adelante a `prisma migrate` con historial de migraciones.
 - El chat se actualiza revisando cada 3-5 segundos (no es una conexión en vivo tipo WhatsApp/Slack); para un chat instantáneo real habría que sumar un servicio de tiempo real (Pusher, Ably, Supabase Realtime), lo cual implica otra cuenta/configuración externa.
 - El estado "en línea" se calcula por el mismo mecanismo (la app avisa cada 30 segundos mientras está abierta); si alguien cierra la pestaña sin avisar, puede tardar hasta ~90 segundos en aparecer como desconectado.
-- Los grupos de chat no tienen (todavía) opción de quitar miembros ni cambiar el nombre después de creados, solo agregar gente nueva.
+- Los grupos de chat todavía no tienen opción de cambiar el nombre después de creados (sí se puede agregar/quitar miembros y eliminar el grupo).
+- Mencionar a alguien con @ resalta su nombre en el mensaje, pero por ahora no le dispara una notificación aparte en su bandeja de entrada (queda como posible mejora futura).
 - Los mensajes de audio del chat (hasta 8MB) usan la grabación nativa del navegador; funciona bien en Chrome/Edge/Firefox. En Safari/iOS el soporte de grabación de audio puede ser más limitado según la versión.
 - La imagen de fondo personalizada del perfil es privada (solo la ve quien la configuró); no se comparte con el resto del equipo.

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ThreadPanel from "./ThreadPanel";
+import GroupMembersModal from "./GroupMembersModal";
+import { renderWithMentions } from "./mentions";
 
 type Member = { id: string; name: string; hasAvatar: boolean; online: boolean };
 
@@ -10,6 +12,7 @@ type ConversationInfo = {
   id: string;
   isGroup: boolean;
   name: string;
+  isCreator: boolean;
   otherUser: { id: string; bio: string | null; hasAvatar: boolean; online: boolean } | null;
   members: Member[];
 };
@@ -41,6 +44,7 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
   const [error, setError] = useState<string | null>(null);
   const [threadMessageId, setThreadMessageId] = useState<string | null>(openThreadFor);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [showMembersModal, setShowMembersModal] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -170,38 +174,57 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
 
   const initials = info.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
   const onlineMembersCount = info.members.filter((m) => m.online).length;
+  const memberNames = info.members.map((m) => m.name);
+
+  // Detecta si se está escribiendo una mención ("@algo" al final del texto).
+  const mentionMatch = info.isGroup ? text.match(/@([^\s@]*)$/) : null;
+  const mentionQuery = mentionMatch ? mentionMatch[1].toLowerCase() : "";
+  const mentionCandidates = mentionMatch
+    ? info.members.filter((m) => m.name.toLowerCase().includes(mentionQuery)).slice(0, 5)
+    : [];
+
+  function pickMention(name: string) {
+    setText((prev) => prev.replace(/@([^\s@]*)$/, `@${name} `));
+  }
 
   return (
     <div className="card flex h-[calc(100vh-140px)] flex-col overflow-hidden">
-      <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-        <div className="relative shrink-0">
-          {!info.isGroup && info.otherUser?.hasAvatar ? (
-            <img src={`/api/users/${info.otherUser.id}/avatar`} alt={info.name} className="h-9 w-9 rounded-full object-cover" />
-          ) : (
-            <div
-              className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${
-                info.isGroup ? "bg-slate-200 text-slate-600" : "bg-brand-100 text-brand-700"
-              }`}
-            >
-              {info.isGroup ? "👥" : initials}
-            </div>
-          )}
-          {!info.isGroup && info.otherUser?.online && (
-            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
-          )}
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative shrink-0">
+            {!info.isGroup && info.otherUser?.hasAvatar ? (
+              <img src={`/api/users/${info.otherUser.id}/avatar`} alt={info.name} className="h-9 w-9 rounded-full object-cover" />
+            ) : (
+              <div
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${
+                  info.isGroup ? "bg-slate-200 text-slate-600" : "bg-brand-100 text-brand-700"
+                }`}
+              >
+                {info.isGroup ? "👥" : initials}
+              </div>
+            )}
+            {!info.isGroup && info.otherUser?.online && (
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900">{info.name}</p>
+            {info.isGroup ? (
+              <p className="truncate text-xs text-slate-400">
+                {info.members.length + 1} miembros{onlineMembersCount > 0 ? ` · ${onlineMembersCount} en línea` : ""}
+              </p>
+            ) : (
+              <p className="truncate text-xs text-slate-400">
+                {info.otherUser?.online ? "En línea" : info.otherUser?.bio || "Desconectado"}
+              </p>
+            )}
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">{info.name}</p>
-          {info.isGroup ? (
-            <p className="truncate text-xs text-slate-400">
-              {info.members.length + 1} miembros{onlineMembersCount > 0 ? ` · ${onlineMembersCount} en línea` : ""}
-            </p>
-          ) : (
-            <p className="truncate text-xs text-slate-400">
-              {info.otherUser?.online ? "En línea" : info.otherUser?.bio || "Desconectado"}
-            </p>
-          )}
-        </div>
+        {info.isGroup && (
+          <button onClick={() => setShowMembersModal(true)} className="btn-secondary shrink-0 py-1.5 text-xs">
+            Miembros
+          </button>
+        )}
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
@@ -220,7 +243,9 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
                   {info.isGroup && !mine && (
                     <p className="mb-0.5 text-[11px] font-semibold text-brand-700">{m.sender?.name || "Usuario eliminado"}</p>
                   )}
-                  {m.type === "TEXT" && <p className="whitespace-pre-wrap">{m.body}</p>}
+                  {m.type === "TEXT" && (
+                    <p className="whitespace-pre-wrap">{renderWithMentions(m.body || "", memberNames)}</p>
+                  )}
                   {m.type === "IMAGE" && (
                     <a href={`/api/chat/messages/${m.id}`} target="_blank" rel="noreferrer">
                       <img src={`/api/chat/messages/${m.id}`} alt={m.fileName || "imagen"} className="max-h-60 rounded-lg" />
@@ -244,9 +269,13 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
                 </div>
                 <button
                   onClick={() => setThreadMessageId(m.id)}
-                  className="mt-0.5 px-1 text-[11px] text-slate-400 hover:text-brand-600 hover:underline"
+                  className={`mt-1 flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition ${
+                    m.replyCount > 0
+                      ? "border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100"
+                      : "border-slate-200 bg-white text-slate-500 hover:border-brand-300 hover:text-brand-600"
+                  }`}
                 >
-                  {m.replyCount > 0 ? `💬 ${m.replyCount} respuesta${m.replyCount === 1 ? "" : "s"}` : "Responder en hilo"}
+                  💬 {m.replyCount > 0 ? `${m.replyCount} respuesta${m.replyCount === 1 ? "" : "s"}` : "Responder en hilo"}
                 </button>
               </div>
             );
@@ -257,7 +286,21 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
 
       {error && <p className="px-4 pb-1 text-xs text-red-600">{error}</p>}
 
-      <form onSubmit={handleSendText} className="flex items-center gap-2 border-t border-slate-100 p-3">
+      <form onSubmit={handleSendText} className="relative flex items-center gap-2 border-t border-slate-100 p-3">
+        {mentionCandidates.length > 0 && (
+          <div className="absolute bottom-full left-3 mb-1 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-panel">
+            {mentionCandidates.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => pickMention(m.name)}
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+              >
+                @{m.name}
+              </button>
+            ))}
+          </div>
+        )}
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
         <button
           type="button"
@@ -278,7 +321,7 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
         </button>
         <input
           className="input"
-          placeholder="Escribe un mensaje..."
+          placeholder={info.isGroup ? "Escribe un mensaje... usa @ para mencionar" : "Escribe un mensaje..."}
           value={text}
           onChange={(e) => setText(e.target.value)}
           disabled={sending}
@@ -293,8 +336,23 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
           conversationId={conversationId}
           currentUserId={currentUserId}
           messageId={threadMessageId}
+          memberNames={memberNames}
+          isGroup={info.isGroup}
           onClose={() => {
             setThreadMessageId(null);
+            load();
+          }}
+        />
+      )}
+
+      {showMembersModal && info.isGroup && (
+        <GroupMembersModal
+          conversationId={conversationId}
+          currentUserId={currentUserId}
+          isCreator={info.isCreator}
+          members={info.members}
+          onClose={() => {
+            setShowMembersModal(false);
             load();
           }}
         />
