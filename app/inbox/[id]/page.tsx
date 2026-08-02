@@ -21,6 +21,14 @@ export default async function TicketPage({ params }: { params: { id: string } })
   if (!ticket) notFound();
   if (ticket.senderId !== user.userId && ticket.recipientId !== user.userId) notFound();
 
+  // Marca el hilo como leído para la parte que corresponda (se usa para el
+  // contador de no leídos de la bandeja de entrada).
+  if (ticket.recipientId === user.userId) {
+    await prisma.ticket.update({ where: { id: ticket.id }, data: { recipientReadAt: new Date() } });
+  } else if (ticket.senderId === user.userId) {
+    await prisma.ticket.update({ where: { id: ticket.id }, data: { senderReadAt: new Date() } });
+  }
+
   const serialized = {
     ...ticket,
     createdAt: ticket.createdAt.toISOString(),

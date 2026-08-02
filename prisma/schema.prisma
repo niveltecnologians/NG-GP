@@ -168,6 +168,11 @@ model Ticket {
 
   replies     TicketReply[]
 
+  // Última vez que cada parte vio el hilo, para poder mostrar un contador
+  // de "no leídos" en la bandeja de entrada.
+  recipientReadAt DateTime?
+  senderReadAt    DateTime?
+
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 }

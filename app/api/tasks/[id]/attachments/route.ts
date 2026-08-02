@@ -47,6 +47,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  const task = await prisma.task.findUnique({
+    where: { id: params.id },
+    include: { project: { include: { members: true } } }
+  });
+  if (!task) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
+  const isMember =
+    task.project.ownerId === user.userId || task.project.members.some((m) => m.userId === user.userId);
+  if (!isMember) return NextResponse.json({ error: "No tienes acceso a esta tarea" }, { status: 403 });
+
   const attachments = await prisma.attachment.findMany({
     where: { taskId: params.id },
     select: ATTACHMENT_LIST_SELECT,

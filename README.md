@@ -28,6 +28,8 @@ Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monda
 - **Menciones con @**: al escribir "@" dentro de un grupo aparece un menú para elegir a la persona; su nombre queda resaltado en el mensaje para todos.
 - **Panel de menciones**: el botón "🔔 Menciones" en la barra lateral del chat muestra quién te mencionó, en qué conversación, y si ya le respondiste o sigue pendiente (con un punto de color); un clic te lleva directo a ese mensaje.
 - **Buscador de palabras clave en el chat**: campo de búsqueda en la barra lateral que busca en todos tus mensajes (de canal y de hilos), en todas tus conversaciones; al hacer clic en un resultado te lleva directo a ese mensaje.
+- **Notificaciones**: la Bandeja de entrada y el Chat muestran un contador de pendientes directamente en el menú de arriba. Si el usuario activa los avisos del navegador ("🔔 Activar avisos"), también recibe una notificación emergente cuando llega algo nuevo mientras tiene la app abierta en otra pestaña o minimizada.
+- **Permisos revisados**: cada usuario solo puede ver los proyectos, tareas, archivos, requerimientos y conversaciones de chat donde está agregado — se hizo una revisión completa de todas las rutas para confirmarlo (y se corrigió una que faltaba: la lista de adjuntos de una tarea).
 
 ## Stack técnico
 
@@ -131,5 +133,6 @@ git push -u origin main
 - El estado "en línea" se calcula por el mismo mecanismo (la app avisa cada 30 segundos mientras está abierta); si alguien cierra la pestaña sin avisar, puede tardar hasta ~90 segundos en aparecer como desconectado.
 - Los grupos de chat todavía no tienen opción de cambiar el nombre después de creados (sí se puede agregar/quitar miembros y eliminar el grupo).
 - Mencionar a alguien con @ resalta su nombre en el mensaje, pero por ahora no le dispara una notificación aparte en su bandeja de entrada (queda como posible mejora futura).
+- Las notificaciones del navegador solo funcionan mientras la pestaña de la app sigue abierta (aunque esté minimizada o en segundo plano); si se cierra la pestaña por completo no llegan avisos, ya que eso requeriría configurar notificaciones push reales (con su propio servicio externo).
 - Los mensajes de audio del chat (hasta 8MB) usan la grabación nativa del navegador; funciona bien en Chrome/Edge/Firefox. En Safari/iOS el soporte de grabación de audio puede ser más limitado según la versión.
 - La imagen de fondo personalizada del perfil es privada (solo la ve quien la configuró); no se comparte con el resto del equipo.

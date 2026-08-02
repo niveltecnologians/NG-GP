@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionPayload } from "@/lib/auth";
@@ -9,6 +9,62 @@ export default function Navbar({ user }: { user: SessionPayload }) {
   const router = useRouter();
   const pathname = usePathname();
   const [avatarError, setAvatarError] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
+  const [chatUnread, setChatUnread] = useState(0);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
+
+  const prevInbox = useRef<number | null>(null);
+  const prevChat = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof Notification !== "undefined") setNotifPermission(Notification.permission);
+  }, []);
+
+  useEffect(() => {
+    function poll() {
+      fetch("/api/inbox/unread-count")
+        .then((r) => r.json())
+        .then((data) => {
+          if (typeof data.count !== "number") return;
+          if (prevInbox.current !== null && data.count > prevInbox.current) {
+            notify("Bandeja de entrada", "Tienes un requerimiento nuevo o sin responder.");
+          }
+          prevInbox.current = data.count;
+          setInboxUnread(data.count);
+        })
+        .catch(() => {});
+
+      fetch("/api/chat/unread-count")
+        .then((r) => r.json())
+        .then((data) => {
+          if (typeof data.count !== "number") return;
+          if (prevChat.current !== null && data.count > prevChat.current) {
+            notify("Chat", "Tienes un mensaje nuevo.");
+          }
+          prevChat.current = data.count;
+          setChatUnread(data.count);
+        })
+        .catch(() => {});
+    }
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function notify(title: string, body: string) {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (typeof document !== "undefined" && document.visibilityState === "visible" && document.hasFocus()) return;
+    try {
+      new Notification(title, { body, icon: "/favicon.ico" });
+    } catch {
+      // algunos navegadores móviles no soportan `new Notification(...)`; se ignora en silencio.
+    }
+  }
+
+  function handleEnableNotifications() {
+    if (typeof Notification === "undefined") return;
+    Notification.requestPermission().then((perm) => setNotifPermission(perm));
+  }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -17,11 +73,11 @@ export default function Navbar({ user }: { user: SessionPayload }) {
   }
 
   const links = [
-    { href: "/dashboard", label: "Proyectos" },
-    { href: "/inbox", label: "Bandeja de entrada" },
-    { href: "/chat", label: "Chat" },
-    { href: "/reports", label: "Informes" },
-    ...(user.role === "ADMIN" ? [{ href: "/users", label: "Usuarios" }] : [])
+    { href: "/dashboard", label: "Proyectos", badge: 0 },
+    { href: "/inbox", label: "Bandeja de entrada", badge: inboxUnread },
+    { href: "/chat", label: "Chat", badge: chatUnread },
+    { href: "/reports", label: "Informes", badge: 0 },
+    ...(user.role === "ADMIN" ? [{ href: "/users", label: "Usuarios", badge: 0 }] : [])
   ];
 
   const initials = user.name
@@ -48,17 +104,31 @@ export default function Navbar({ user }: { user: SessionPayload }) {
                 <Link
                   key={l.href}
                   href={l.href}
-                  className={`rounded-md px-3 py-1.5 transition ${
+                  className={`relative rounded-md px-3 py-1.5 transition ${
                     active ? "bg-brand-50 text-brand-700" : "hover:bg-slate-100 hover:text-slate-900"
                   }`}
                 >
                   {l.label}
+                  {l.badge > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
+                      {l.badge > 9 ? "9+" : l.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          {notifPermission === "default" && (
+            <button
+              onClick={handleEnableNotifications}
+              className="hidden text-xs text-slate-400 hover:text-brand-600 sm:inline"
+              title="Recibir un aviso del navegador cuando llegue algo nuevo"
+            >
+              🔔 Activar avisos
+            </button>
+          )}
           <Link href="/profile" className="hidden items-center gap-2 sm:flex">
             {!avatarError ? (
               <img
