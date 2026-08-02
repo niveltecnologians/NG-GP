@@ -35,22 +35,25 @@ export async function GET(req: NextRequest) {
     take: 30
   });
 
-  const formatted = results.map((m) => {
-    const others = m.conversation.members.filter((cm) => cm.userId !== user.userId).map((cm) => cm.user);
-    const conversationName = m.conversation.isGroup
-      ? m.conversation.name || others.map((o) => o.name).join(", ")
-      : others[0]?.name || "Usuario eliminado";
-    return {
-      id: m.id,
-      body: m.body,
-      createdAt: m.createdAt.toISOString(),
-      conversationId: m.conversationId,
-      conversationName,
-      isThreadReply: !!m.parentMessageId,
-      parentMessageId: m.parentMessageId,
-      senderName: m.sender?.name || "Usuario eliminado"
-    };
-  });
+  const formatted = results
+    .filter((m) => m.conversation !== null)
+    .map((m) => {
+      const conversation = m.conversation!;
+      const others = conversation.members.filter((cm) => cm.userId !== user.userId).map((cm) => cm.user);
+      const conversationName = conversation.isGroup
+        ? conversation.name || others.map((o) => o.name).join(", ")
+        : others[0]?.name || "Usuario eliminado";
+      return {
+        id: m.id,
+        body: m.body,
+        createdAt: m.createdAt.toISOString(),
+        conversationId: m.conversationId,
+        conversationName,
+        isThreadReply: !!m.parentMessageId,
+        parentMessageId: m.parentMessageId,
+        senderName: m.sender?.name || "Usuario eliminado"
+      };
+    });
 
   return NextResponse.json(formatted);
 }
