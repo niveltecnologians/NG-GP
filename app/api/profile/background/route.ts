@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+// Esta ruta sube el archivo directo a través de la función serverless (no
+// usa Vercel Blob), y Vercel limita esas peticiones a ~4.5MB — por eso el
+// máximo se deja con margen, en 3MB.
+const MAX_SIZE = 3 * 1024 * 1024; // 3MB
 
 // Guarda un color plano de fondo (limpia cualquier imagen previa).
 export async function PATCH(req: NextRequest) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import ThreadPanel from "./ThreadPanel";
 import GroupMembersModal from "./GroupMembersModal";
 import { renderWithMentions } from "./mentions";
@@ -107,30 +108,48 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
   async function uploadFile(file: File, kind: "IMAGE" | "AUDIO" | "FILE") {
     setSending(true);
     setError(null);
-    const form = new FormData();
-    form.append("file", file);
-    form.append("kind", kind);
-    const res = await fetch(`/api/chat/conversations/${conversationId}`, { method: "POST", body: form });
-    setSending(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "No se pudo enviar el archivo");
-      return;
+    try {
+      const blob = await upload(file.name, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob/chat-file",
+        clientPayload: JSON.stringify({ conversationId })
+      });
+      const res = await fetch(`/api/chat/conversations/${conversationId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileUrl: blob.url,
+          fileName: file.name,
+          fileMimeType: file.type || "application/octet-stream",
+          fileSize: file.size,
+          kind
+        })
+      });
+      setSending(false);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "No se pudo enviar el archivo");
+        return;
+      }
+      const message = await res.json();
+      setMessages((prev) => [...prev, message]);
+    } catch (err) {
+      setSending(false);
+      setError((err as Error).message || "No se pudo subir el archivo");
     }
-    const message = await res.json();
-    setMessages((prev) => [...prev, message]);
   }
 
   function handleAttachClick() {
     fileInputRef.current?.click();
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files ? Array.from(e.target.files) : [];
     e.target.value = "";
-    if (!file) return;
-    const kind = file.type.startsWith("image/") ? "IMAGE" : "FILE";
-    uploadFile(file, kind);
+    for (const file of files) {
+      const kind = file.type.startsWith("image/") ? "IMAGE" : "FILE";
+      await uploadFile(file, kind);
+    }
   }
 
   async function handleToggleRecording() {
@@ -301,7 +320,7 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
             ))}
           </div>
         )}
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileChange} />
         <button
           type="button"
           onClick={handleAttachClick}

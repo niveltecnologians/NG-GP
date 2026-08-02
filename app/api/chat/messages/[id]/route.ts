@@ -18,6 +18,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
   if (!isParticipant) return NextResponse.json({ error: "No tienes acceso a este archivo" }, { status: 403 });
 
+  // Archivos nuevos (grandes): viven en Vercel Blob, solo redirigimos ahí.
+  if (message.fileUrl) {
+    return NextResponse.redirect(message.fileUrl);
+  }
+
   if (!message.fileData || !message.fileMimeType) {
     return NextResponse.json({ error: "Este mensaje no tiene archivo" }, { status: 404 });
   }

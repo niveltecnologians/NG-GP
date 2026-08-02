@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { upload } from "@vercel/blob/client";
 import {
   Task,
   ProjectMember,
@@ -96,17 +97,49 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!current || !e.target.files?.length) return;
-    setUploading(true);
-    const form = new FormData();
-    form.append("file", e.target.files[0]);
-    const res = await fetch(`/api/tasks/${current.id}/attachments`, { method: "POST", body: form });
-    setUploading(false);
+    const files = Array.from(e.target.files);
     e.target.value = "";
-    if (res.ok) {
-      const attachment = await res.json();
-      setCurrent({ ...current, attachments: [...current.attachments, attachment] });
-      onSaved({ ...current, attachments: [...current.attachments, attachment] });
+    setUploading(true);
+    setError(null);
+
+    // Se suben uno por uno; cada archivo que termina se agrega a la lista
+    // sin tocar los que ya estaban (nunca se borra nada al adjuntar).
+    for (const file of files) {
+      try {
+        const blob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/blob/task-attachment",
+          clientPayload: JSON.stringify({ taskId: current.id })
+        });
+
+        const res = await fetch(`/api/tasks/${current.id}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: blob.url,
+            filename: file.name,
+            mimeType: file.type || "application/octet-stream",
+            size: file.size
+          })
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setError(`"${file.name}": ${data.error || "no se pudo guardar"}`);
+          continue;
+        }
+        const attachment = await res.json();
+        setCurrent((prev) => {
+          if (!prev) return prev;
+          const updated = { ...prev, attachments: [...prev.attachments, attachment] };
+          onSaved(updated);
+          return updated;
+        });
+      } catch (err) {
+        setError(`"${file.name}": ${(err as Error).message || "no se pudo subir"}`);
+      }
     }
+
+    setUploading(false);
   }
 
   return (
@@ -191,7 +224,9 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
                 ))}
                 {current.attachments.length === 0 && <li className="text-xs text-slate-400">Sin archivos aún</li>}
               </ul>
-              <input type="file" onChange={handleUpload} disabled={uploading} className="text-sm" />
+              <input type="file" multiple onChange={handleUpload} disabled={uploading} className="text-sm" />
+              {uploading && <p className="text-xs text-slate-400">Subiendo...</p>}
+              <p className="text-xs text-slate-400">Puedes seleccionar varios archivos a la vez; los anteriores no se borran.</p>
             </div>
           )}
         </div>

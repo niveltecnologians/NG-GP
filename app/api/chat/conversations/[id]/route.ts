@@ -92,41 +92,65 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const contentType = req.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    const { body, parentMessageId } = await req.json();
-    if (!body || !body.trim()) {
-      return NextResponse.json({ error: "El mensaje no puede estar vacío" }, { status: 400 });
-    }
-    const message = await prisma.chatMessage.create({
-      data: {
-        type: "TEXT",
-        body: body.trim(),
-        senderId: user.userId,
-        conversationId: params.id,
-        parentMessageId: parentMessageId || null
-      },
-      select: MESSAGE_SELECT
-    });
-    await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
+    const payload = await req.json();
+    const parentMessageId = payload.parentMessageId || null;
 
-    // Detecta menciones "@Nombre" y las guarda para el panel de menciones.
-    const members = await prisma.conversationMember.findMany({
-      where: { conversationId: params.id },
-      include: { user: { select: { id: true, name: true } } }
-    });
-    const mentionedIds = extractMentionedUserIds(
-      message.body || "",
-      members.map((m) => m.user)
-    ).filter((id) => id !== user.userId);
-    if (mentionedIds.length > 0) {
-      await prisma.mention.createMany({
-        data: mentionedIds.map((userId) => ({ messageId: message.id, userId })),
-        skipDuplicates: true
+    let message;
+    if (payload.fileUrl) {
+      // Archivo grande ya subido a Vercel Blob: solo confirmamos.
+      const kind = payload.kind as string | undefined;
+      const type: "IMAGE" | "AUDIO" | "FILE" = kind === "IMAGE" ? "IMAGE" : kind === "AUDIO" ? "AUDIO" : "FILE";
+      message = await prisma.chatMessage.create({
+        data: {
+          type,
+          senderId: user.userId,
+          conversationId: params.id,
+          parentMessageId,
+          fileUrl: payload.fileUrl,
+          fileName: payload.fileName || "archivo",
+          fileMimeType: payload.fileMimeType || "application/octet-stream",
+          fileSize: payload.fileSize || 0
+        },
+        select: MESSAGE_SELECT
       });
+    } else {
+      const body = payload.body as string | undefined;
+      if (!body || !body.trim()) {
+        return NextResponse.json({ error: "El mensaje no puede estar vacío" }, { status: 400 });
+      }
+      message = await prisma.chatMessage.create({
+        data: {
+          type: "TEXT",
+          body: body.trim(),
+          senderId: user.userId,
+          conversationId: params.id,
+          parentMessageId
+        },
+        select: MESSAGE_SELECT
+      });
+
+      // Detecta menciones "@Nombre" y las guarda para el panel de menciones.
+      const members = await prisma.conversationMember.findMany({
+        where: { conversationId: params.id },
+        include: { user: { select: { id: true, name: true } } }
+      });
+      const mentionedIds = extractMentionedUserIds(
+        message.body || "",
+        members.map((m) => m.user)
+      ).filter((id) => id !== user.userId);
+      if (mentionedIds.length > 0) {
+        await prisma.mention.createMany({
+          data: mentionedIds.map((userId) => ({ messageId: message.id, userId })),
+          skipDuplicates: true
+        });
+      }
     }
 
+    await prisma.conversation.update({ where: { id: params.id }, data: { updatedAt: new Date() } });
     return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString(), replyCount: 0 }, { status: 201 });
   }
 
+  // Ruta antigua: archivos chicos, guardados directamente como bytes.
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const kind = (formData.get("kind") as string | null) || "FILE";

@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { getAppSettings } from "@/lib/settings";
 
-const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+// Ojo: esta ruta sube el archivo directo a través de la función serverless
+// (no usa Vercel Blob), y Vercel limita esas peticiones a ~4.5MB — por eso
+// el máximo se deja con margen, en 3MB.
+const MAX_SIZE = 3 * 1024 * 1024; // 3MB
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();

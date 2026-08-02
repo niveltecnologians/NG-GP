@@ -181,7 +181,7 @@ export default function SettingsForm({
           )}
         </div>
         <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
-        <p className="mt-2 text-xs text-slate-400">JPG o PNG, máximo 5MB.</p>
+        <p className="mt-2 text-xs text-slate-400">JPG o PNG, máximo 3MB.</p>
       </div>
     </div>
   );

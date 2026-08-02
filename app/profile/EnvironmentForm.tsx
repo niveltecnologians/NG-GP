@@ -103,7 +103,7 @@ export default function EnvironmentForm({
           </button>
         </div>
         <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-        <p className="mt-1 text-xs text-slate-400">JPG o PNG, máximo 5MB. Reemplaza al color elegido.</p>
+        <p className="mt-1 text-xs text-slate-400">JPG o PNG, máximo 3MB. Reemplaza al color elegido.</p>
       </div>
     </div>
   );
