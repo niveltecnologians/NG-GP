@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { isOnline } from "@/lib/presence";
@@ -14,7 +15,9 @@ const MESSAGE_SELECT = {
   senderId: true,
   createdAt: true,
   sender: { select: { id: true, name: true, hasAvatar: true } }
-} as const;
+} satisfies Prisma.ChatMessageSelect;
+
+type MessageWithSender = Prisma.ChatMessageGetPayload<{ select: typeof MESSAGE_SELECT }>;
 
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
 
@@ -95,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const payload = await req.json();
     const parentMessageId = payload.parentMessageId || null;
 
-    let message;
+    let message: MessageWithSender;
     if (payload.fileUrl) {
       // Archivo grande ya subido a Vercel Blob: solo confirmamos.
       const kind = payload.kind as string | undefined;
