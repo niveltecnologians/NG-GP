@@ -34,6 +34,22 @@ enum TaskStatus {
   IN_PROGRESS
   REVIEW
   DONE
+
+  // Columnas del modo "administrativo" (ver ProjectBoardMode más abajo).
+  PROSPECTOS
+  DISENO
+  PRESUPUESTO
+  EJECUCION
+  LIQUIDACION
+  POSVENTA
+}
+
+// Define qué juego de columnas usa el tablero Kanban de un proyecto. Se
+// elige al crear el proyecto y no cambia después, para no dejar tareas
+// "huérfanas" con un estado que ya no aparece en ninguna columna.
+enum ProjectBoardMode {
+  TASKS // Por hacer / En progreso / En revisión / Terminado
+  ADMIN // Prospectos / Diseño / Presupuesto / Ejecución / Liquidación / Pos venta
 }
 
 enum TaskPriority {
@@ -110,15 +126,16 @@ model InviteCode {
 }
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   name        String
   description String?
+  boardMode   ProjectBoardMode @default(TASKS)
   ownerId     String
-  owner       User     @relation("ProjectOwner", fields: [ownerId], references: [id])
+  owner       User             @relation("ProjectOwner", fields: [ownerId], references: [id])
   members     ProjectMember[]
   tasks       Task[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 model ProjectMember {

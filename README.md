@@ -14,6 +14,8 @@ Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, pue
 - **Proyectos**: cualquier administrador puede editar los datos del proyecto, agregar miembros y ahora también **quitar miembros** (antes solo se podía agregar).
 - **Chat**: cualquier integrante de una conversación (1 a 1 o grupo) puede eliminarla, no solo quien la creó.
 - **Chat**: se puede **editar un mensaje de texto después de enviarlo** (por si hay un error de tipeo); queda marcado como "(editado)" para que sea transparente para el resto.
+- **Bandeja de entrada**: se corrigió un error por el que el contador de "no leídos" del menú de arriba no bajaba al leer un requerimiento (quedaba pegado); ahora baja de inmediato.
+- **Tableros de proyecto configurables**: al crear un proyecto ahora eliges el **"Modo del tablero"**: "Tareas" (las columnas de siempre: Por hacer / En progreso / En revisión / Terminado) o "Administrativo" (Prospectos / Diseño / Presupuesto / Ejecución / Liquidación / Pos venta). El tablero Kanban, el menú de "Estado" de cada tarea y el informe del proyecto se ajustan solos según el modo elegido. El modo se define al crear el proyecto y no se puede cambiar después (para no dejar tareas con un estado que ya no existe en el tablero).
 
 ## Referentes investigados
 
@@ -38,8 +40,8 @@ Los archivos que ya habías subido antes (guardados en la base de datos) siguen 
 - **Configuración de marca** (`/settings`, solo administradores): cambia el nombre de la aplicación (reemplaza "Gestor de Proyectos" en la barra superior, el título de la pestaña y las pantallas de login/registro), sube un logo y una imagen/portada. Se aplica al instante para todo el equipo.
 
 - Autenticación propia (registro, login, logout) con contraseña cifrada y sesión por JWT en cookie httpOnly. El primer usuario registrado queda como administrador; todos los siguientes necesitan un **código de invitación**.
-- Proyectos (tableros) con miembros que se agregan seleccionándolos de una lista (ya no hace falta escribir el email). El dueño del proyecto **o cualquier administrador** puede editar el nombre y la descripción, agregar miembros y quitarlos.
-- Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite. Al asignar (o reasignar) una tarea, la persona recibe automáticamente un aviso en su bandeja de entrada.
+- Proyectos (tableros) con miembros que se agregan seleccionándolos de una lista (ya no hace falta escribir el email). El dueño del proyecto **o cualquier administrador** puede editar el nombre y la descripción, agregar miembros y quitarlos. Al crear el proyecto se elige el **modo del tablero**: "Tareas" (Por hacer / En progreso / En revisión / Terminado) o "Administrativo" (Prospectos / Diseño / Presupuesto / Ejecución / Liquidación / Pos venta) — ver la sección de novedades más arriba.
+- Tareas con título, descripción, estado (según el modo del tablero del proyecto), prioridad, responsable y fecha límite. Al asignar (o reasignar) una tarea, la persona recibe automáticamente un aviso en su bandeja de entrada.
 - Tablero Kanban con arrastrar y soltar para cambiar el estado de una tarea.
 - Subida y descarga de archivos adjuntos por tarea, **puedes seleccionar varios archivos a la vez** y nunca se borran los que ya estaban al agregar uno nuevo. Los archivos se suben directo a Vercel Blob, con subida por partes para que archivos grandes (hasta 500MB cada uno) sean confiables — ver la sección de arriba sobre activar Vercel Blob.
 - Bandeja de entrada por usuario: cualquier miembro puede enviar un "requerimiento" a otro (como un correo, con asunto y mensaje), con hilo de respuestas y estado (Abierto / En progreso / Cerrado) para trazabilidad completa. Tanto quien lo envió como quien lo recibió puede eliminarlo si ya no hace falta.
