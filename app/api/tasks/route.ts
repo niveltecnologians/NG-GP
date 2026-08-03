@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { title, description, projectId, assigneeId, priority, dueDate } = await req.json();
+  const { title, description, projectId, assigneeId, priority, dueDate, status } = await req.json();
   if (!title || !projectId) {
     return NextResponse.json({ error: "Título y proyecto son obligatorios" }, { status: 400 });
   }
@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
   const isMember = project.ownerId === user.userId || project.members.some((m) => m.userId === user.userId);
   if (!isMember) return NextResponse.json({ error: "No perteneces a este proyecto" }, { status: 403 });
 
+  // Si no viene un estado inicial, se usa la primera columna según el modo
+  // de tablero del proyecto (Por hacer / Prospectos).
+  const initialStatus = status || (project.boardMode === "ADMIN" ? "PROSPECTOS" : "TODO");
+
   const task = await prisma.task.create({
     data: {
       title,
@@ -26,7 +30,8 @@ export async function POST(req: NextRequest) {
       assigneeId: assigneeId || null,
       priority: priority || "MEDIUM",
       dueDate: dueDate ? new Date(dueDate) : null,
-      createdById: user.userId
+      createdById: user.userId,
+      status: initialStatus
     },
     include: {
       assignee: { select: { id: true, name: true, email: true } },

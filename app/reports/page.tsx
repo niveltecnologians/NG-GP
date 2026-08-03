@@ -20,6 +20,7 @@ export default async function ReportsPage() {
     id: p.id,
     name: p.name,
     description: p.description,
+    boardMode: p.boardMode,
     tasks: p.tasks.map((t) => ({
       id: t.id,
       title: t.title,

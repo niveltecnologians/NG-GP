@@ -1,21 +1,20 @@
 "use client";
 
 import { useState } from "react";
+import { TaskStatus, STATUS_LABELS, BOARD_MODE_COLUMNS, BoardMode } from "@/lib/types";
 
 type TaskRow = {
   id: string;
   title: string;
-  status: "TODO" | "IN_PROGRESS" | "REVIEW" | "DONE";
+  status: TaskStatus;
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate: string | null;
   assignee: { id: string; name: string } | null;
 };
 
-type ProjectRow = { id: string; name: string; description: string | null; tasks: TaskRow[] };
+type ProjectRow = { id: string; name: string; description: string | null; boardMode: BoardMode; tasks: TaskRow[] };
 
-const STATUS_LABELS: Record<string, string> = { TODO: "Por hacer", IN_PROGRESS: "En progreso", REVIEW: "En revisión", DONE: "Terminado" };
 const PRIORITY_LABELS: Record<string, string> = { LOW: "Baja", MEDIUM: "Media", HIGH: "Alta", URGENT: "Urgente" };
-const STATUS_ORDER = ["TODO", "IN_PROGRESS", "REVIEW", "DONE"] as const;
 
 export default function ReportsView({ projects }: { projects: ProjectRow[] }) {
   const [projectId, setProjectId] = useState(projects[0]?.id || "");
@@ -27,10 +26,15 @@ export default function ReportsView({ projects }: { projects: ProjectRow[] }) {
   const project = projects.find((p) => p.id === projectId) || projects[0];
   const tasks = project.tasks;
   const total = tasks.length;
-  const counts: Record<string, number> = { TODO: 0, IN_PROGRESS: 0, REVIEW: 0, DONE: 0 };
-  tasks.forEach((t) => counts[t.status]++);
-  const pct = total > 0 ? Math.round((counts.DONE / total) * 100) : 0;
-  const overdueCount = tasks.filter((t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "DONE").length;
+  const STATUS_ORDER = BOARD_MODE_COLUMNS[project.boardMode || "TASKS"];
+  const doneStatus = STATUS_ORDER[STATUS_ORDER.length - 1];
+  const counts: Record<string, number> = Object.fromEntries(STATUS_ORDER.map((s) => [s, 0]));
+  tasks.forEach((t) => {
+    if (counts[t.status] === undefined) counts[t.status] = 0;
+    counts[t.status]++;
+  });
+  const pct = total > 0 ? Math.round((counts[doneStatus] / total) * 100) : 0;
+  const overdueCount = tasks.filter((t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== doneStatus).length;
 
   function exportCsv() {
     const rows = [["Tarea", "Estado", "Prioridad", "Responsable", "Fecha límite"]];
@@ -73,7 +77,11 @@ export default function ReportsView({ projects }: { projects: ProjectRow[] }) {
       <h2 className="mb-1 text-lg font-semibold">{project.name}</h2>
       <p className="mb-4 text-sm text-slate-500">{project.description || "Sin descripción"}</p>
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div
+        className={`mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 ${
+          STATUS_ORDER.length > 4 ? "lg:grid-cols-4 xl:grid-cols-8" : "lg:grid-cols-6"
+        }`}
+      >
         <div className="card p-4">
           <div className="text-xs text-slate-500">Total de tareas</div>
           <div className="text-2xl font-bold">{total}</div>
@@ -114,7 +122,7 @@ export default function ReportsView({ projects }: { projects: ProjectRow[] }) {
               </tr>
             ) : (
               tasks.map((t) => {
-                const overdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "DONE";
+                const overdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== doneStatus;
                 return (
                   <tr key={t.id} className="border-b border-slate-100 text-sm">
                     <td className="px-4 py-2.5">{t.title}</td>

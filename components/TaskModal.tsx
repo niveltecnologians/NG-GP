@@ -15,17 +15,18 @@ import {
 type Props = {
   projectId: string;
   members: ProjectMember[];
+  statusOptions: TaskStatus[];
   task: Task | null; // null = modo creación
   onClose: () => void;
   onSaved: (task: Task) => void;
   onDeleted: (taskId: string) => void;
 };
 
-export default function TaskModal({ projectId, members, task, onClose, onSaved, onDeleted }: Props) {
+export default function TaskModal({ projectId, members, statusOptions, task, onClose, onSaved, onDeleted }: Props) {
   const [current, setCurrent] = useState<Task | null>(task);
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
-  const [status, setStatus] = useState<TaskStatus>(task?.status || "TODO");
+  const [status, setStatus] = useState<TaskStatus>(task?.status || statusOptions[0]);
   const [priority, setPriority] = useState<TaskPriority>(task?.priority || "MEDIUM");
   const [assigneeId, setAssigneeId] = useState(task?.assignee?.id || "");
   const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.slice(0, 10) : "");
@@ -42,7 +43,7 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, projectId, assigneeId, priority, dueDate })
+        body: JSON.stringify({ title, description, projectId, assigneeId, priority, dueDate, status: statusOptions[0] })
       });
       setLoading(false);
       if (!res.ok) {
@@ -169,8 +170,8 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
             <div>
               <label className="mb-1 block text-sm font-medium">Estado</label>
               <select className="input" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
+                {statusOptions.map((value) => (
+                  <option key={value} value={value}>{STATUS_LABELS[value]}</option>
                 ))}
               </select>
             </div>

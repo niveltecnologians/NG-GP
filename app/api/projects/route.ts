@@ -26,13 +26,16 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { name, description } = await req.json();
+  const { name, description, boardMode } = await req.json();
   if (!name) return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 });
+
+  const validBoardMode = boardMode === "ADMIN" ? "ADMIN" : "TASKS";
 
   const project = await prisma.project.create({
     data: {
       name,
       description,
+      boardMode: validBoardMode,
       ownerId: user.userId,
       members: { create: [{ userId: user.userId }] }
     },

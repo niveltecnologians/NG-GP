@@ -52,6 +52,8 @@ export default async function ProjectPage({ params }: { params: { id: string } }
           <p className="text-sm text-slate-500">{project.description || "Sin descripción"}</p>
           <p className="mt-1 text-xs text-slate-400">
             Miembros: {project.members.map((m) => m.user.name).join(", ")}
+            {" · "}
+            Tablero: {project.boardMode === "ADMIN" ? "Administrativo" : "Tareas"}
           </p>
         </div>
         {canManage && (

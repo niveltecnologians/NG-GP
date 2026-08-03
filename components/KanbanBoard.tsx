@@ -1,18 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ProjectDetail, Task, TaskStatus, STATUS_LABELS } from "@/lib/types";
+import { ProjectDetail, Task, TaskStatus, STATUS_LABELS, STATUS_DOT, BOARD_MODE_COLUMNS } from "@/lib/types";
 import TaskCard from "@/components/TaskCard";
 import TaskModal from "@/components/TaskModal";
-
-const COLUMNS: TaskStatus[] = ["TODO", "IN_PROGRESS", "REVIEW", "DONE"];
-
-const COLUMN_DOT: Record<TaskStatus, string> = {
-  TODO: "bg-slate-400",
-  IN_PROGRESS: "bg-blue-500",
-  REVIEW: "bg-amber-500",
-  DONE: "bg-emerald-500"
-};
 
 export default function KanbanBoard({
   project,
@@ -21,6 +12,7 @@ export default function KanbanBoard({
   project: ProjectDetail;
   currentUserId: string;
 }) {
+  const COLUMNS = BOARD_MODE_COLUMNS[project.boardMode || "TASKS"];
   const [tasks, setTasks] = useState<Task[]>(project.tasks);
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined); // undefined = cerrado
 
@@ -58,7 +50,11 @@ export default function KanbanBoard({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${
+          COLUMNS.length > 4 ? "lg:grid-cols-3 xl:grid-cols-6" : "lg:grid-cols-4"
+        }`}
+      >
         {COLUMNS.map((status) => {
           const colTasks = tasks.filter((t) => t.status === status);
           return (
@@ -70,7 +66,7 @@ export default function KanbanBoard({
             >
               <h3 className="mb-3 flex items-center justify-between px-0.5 text-sm font-semibold text-slate-600">
                 <span className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${COLUMN_DOT[status]}`} />
+                  <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status]}`} />
                   {STATUS_LABELS[status]}
                 </span>
                 <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-400 shadow-sm">
@@ -101,6 +97,7 @@ export default function KanbanBoard({
         <TaskModal
           projectId={project.id}
           members={project.members}
+          statusOptions={COLUMNS}
           task={editingTask}
           onClose={() => setEditingTask(undefined)}
           onSaved={handleSaved}

@@ -14,7 +14,10 @@ export default function TaskCard({
 }) {
   const [avatarError, setAvatarError] = useState(false);
   const initials = task.assignee ? task.assignee.name.slice(0, 2).toUpperCase() : "—";
-  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
+  // "DONE" y "POSVENTA" son la última columna de cada modo de tablero
+  // (Tareas y Administrativo); una tarea ahí ya no cuenta como vencida.
+  const isFinalStatus = task.status === "DONE" || task.status === "POSVENTA";
+  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && !isFinalStatus;
 
   return (
     <div

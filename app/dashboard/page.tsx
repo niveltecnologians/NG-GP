@@ -30,7 +30,14 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => (
             <Link key={p.id} href={`/projects/${p.id}`} className="card p-5">
-              <h2 className="font-semibold text-slate-900">{p.name}</h2>
+              <div className="flex items-start justify-between gap-2">
+                <h2 className="font-semibold text-slate-900">{p.name}</h2>
+                {p.boardMode === "ADMIN" && (
+                  <span className="shrink-0 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">
+                    Administrativo
+                  </span>
+                )}
+              </div>
               <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description || "Sin descripción"}</p>
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-400">
                 <span>{p._count.tasks} tareas</span>
