@@ -18,9 +18,9 @@ Antes de volver a desplegar esta versión, activa Vercel Blob en tu proyecto (un
 
 1. En tu proyecto de Vercel, ve a la pestaña **"Storage"**.
 2. Haz clic en **"Create Database"** → elige **"Blob"**.
-3. Ponle un nombre (por ejemplo "archivos") y confirma. Marca que se conecte a los ambientes **Production** y **Preview**.
-4. Vercel agrega solo la variable de entorno `BLOB_READ_WRITE_TOKEN` a tu proyecto — no tienes que copiar ni pegar nada.
-5. Sube el código de esta versión a GitHub como siempre; Vercel va a redesplegar y desde ese momento los archivos pesados van a funcionar.
+3. Ponle un nombre (por ejemplo "archivos"), y cuando te pregunte por el nivel de acceso elige **"Public"** (no "Private" — el código necesita URLs públicas para poder mostrar/descargar los archivos). Confirma la creación.
+4. **Verifica que quedó la variable `BLOB_READ_WRITE_TOKEN`**: ve a Settings → Environments → Production (sección "Environment Variables"). A veces Vercel solo agrega `BLOB_STORE_ID` y no esta — si falta, entra a tu store de Blob → pestaña **".env.local"** → "Show secret" → copia el valor de `BLOB_READ_WRITE_TOKEN` → agrégalo tú mismo como variable de entorno (Production y Preview).
+5. Sube el código de esta versión a GitHub como siempre, y haz un **Redeploy** del despliegue más reciente para que tome la variable.
 
 Los archivos que ya habías subido antes (guardados en la base de datos) siguen funcionando exactamente igual — no se pierden ni hay que volver a subirlos.
 
@@ -32,7 +32,7 @@ Los archivos que ya habías subido antes (guardados en la base de datos) siguen 
 - Proyectos (tableros) con miembros que se agregan seleccionándolos de una lista (ya no hace falta escribir el email). El dueño puede editar el nombre y la descripción del proyecto en cualquier momento.
 - Tareas con título, descripción, estado (Por hacer / En progreso / En revisión / Terminado), prioridad, responsable y fecha límite. Al asignar (o reasignar) una tarea, la persona recibe automáticamente un aviso en su bandeja de entrada.
 - Tablero Kanban con arrastrar y soltar para cambiar el estado de una tarea.
-- Subida y descarga de archivos adjuntos por tarea, **puedes seleccionar varios archivos a la vez** y nunca se borran los que ya estaban al agregar uno nuevo. Los archivos se suben directo a Vercel Blob (hasta 100MB cada uno) — ver la sección de arriba sobre activar Vercel Blob.
+- Subida y descarga de archivos adjuntos por tarea, **puedes seleccionar varios archivos a la vez** y nunca se borran los que ya estaban al agregar uno nuevo. Los archivos se suben directo a Vercel Blob, con subida por partes para que archivos grandes (hasta 500MB cada uno) sean confiables — ver la sección de arriba sobre activar Vercel Blob.
 - Bandeja de entrada por usuario: cualquier miembro puede enviar un "requerimiento" a otro (como un correo, con asunto y mensaje), con hilo de respuestas y estado (Abierto / En progreso / Cerrado) para trazabilidad completa.
 - **Gestión de usuarios** (solo administradores): crear y eliminar cuentas del equipo desde `/users`.
 - **Códigos de invitación** (solo administradores, también desde `/users`): generas un código de un solo uso (con rol miembro o administrador) y se lo compartes a quien quieras sumar; sin código válido no se puede crear una cuenta nueva.
