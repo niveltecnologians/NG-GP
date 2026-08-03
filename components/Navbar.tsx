@@ -58,7 +58,8 @@ export default function Navbar({
     poll();
     const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   function notify(title: string, body: string) {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
