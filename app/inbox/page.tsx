@@ -32,12 +32,25 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [box]);
+
+  function load() {
     setLoading(true);
     fetch(`/api/inbox?box=${box}`)
       .then((r) => r.json())
       .then((data) => setTickets(data))
       .finally(() => setLoading(false));
-  }, [box]);
+  }
+
+  async function handleDelete(e: React.MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm("¿Eliminar este requerimiento y sus respuestas? Esta acción no se puede deshacer.")) return;
+    const res = await fetch(`/api/inbox/${id}`, { method: "DELETE" });
+    if (res.ok) setTickets((prev) => prev.filter((t) => t.id !== id));
+  }
 
   return (
     <div>
@@ -83,9 +96,18 @@ export default function InboxPage() {
                   {box === "received" ? `De: ${t.sender?.name || "Usuario eliminado"}` : `Para: ${t.recipient?.name || "Usuario eliminado"}`} — {t.body}
                 </p>
               </div>
-              <div className="shrink-0 text-right text-xs text-slate-400">
-                <div>{new Date(t.updatedAt).toLocaleString("es-ES")}</div>
-                <div>{t._count.replies} respuesta(s)</div>
+              <div className="flex shrink-0 items-center gap-3">
+                <div className="text-right text-xs text-slate-400">
+                  <div>{new Date(t.updatedAt).toLocaleString("es-ES")}</div>
+                  <div>{t._count.replies} respuesta(s)</div>
+                </div>
+                <button
+                  onClick={(e) => handleDelete(e, t.id)}
+                  className="text-xs text-red-600 hover:underline"
+                  title="Eliminar requerimiento"
+                >
+                  Eliminar
+                </button>
               </div>
             </Link>
           ))}

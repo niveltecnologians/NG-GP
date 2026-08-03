@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { safeBlobPathname } from "@/lib/blobPath";
 import ThreadPanel from "./ThreadPanel";
@@ -29,10 +29,12 @@ type Message = {
   senderId: string | null;
   sender: { id: string; name: string; hasAvatar: boolean } | null;
   createdAt: string;
+  editedAt: string | null;
   replyCount: number;
 };
 
 export default function ChatThread({ currentUserId, conversationId }: { currentUserId: string; conversationId: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("m");
   const openThreadFor = searchParams.get("thread");
@@ -44,6 +46,9 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [threadMessageId, setThreadMessageId] = useState<string | null>(openThreadFor);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [showMembersModal, setShowMembersModal] = useState(false);
@@ -186,6 +191,45 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
+  async function handleDeleteConversation() {
+    if (!confirm("¿Eliminar este chat? Se borran todos los mensajes para ambas personas. Esta acción no se puede deshacer.")) return;
+    const res = await fetch(`/api/chat/conversations/${conversationId}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/chat");
+      router.refresh();
+    }
+  }
+
+  function startEdit(m: Message) {
+    setEditingId(m.id);
+    setEditText(m.body || "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText("");
+  }
+
+  async function saveEdit(messageId: string) {
+    if (!editText.trim()) return;
+    setSavingEdit(true);
+    const res = await fetch(`/api/chat/messages/${messageId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: editText })
+    });
+    setSavingEdit(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo editar el mensaje");
+      return;
+    }
+    const updated = await res.json();
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, body: updated.body, editedAt: updated.editedAt } : m)));
+    setEditingId(null);
+    setEditText("");
+  }
+
   if (!info && loading) {
     return <div className="card flex h-[calc(100vh-140px)] items-center justify-center text-sm text-slate-400">Cargando...</div>;
   }
@@ -241,11 +285,18 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
             )}
           </div>
         </div>
-        {info.isGroup && (
-          <button onClick={() => setShowMembersModal(true)} className="btn-secondary shrink-0 py-1.5 text-xs">
-            Miembros
-          </button>
-        )}
+        <div className="flex shrink-0 gap-2">
+          {info.isGroup && (
+            <button onClick={() => setShowMembersModal(true)} className="btn-secondary py-1.5 text-xs">
+              Miembros
+            </button>
+          )}
+          {!info.isGroup && (
+            <button onClick={handleDeleteConversation} className="btn-secondary py-1.5 text-xs text-red-600">
+              Eliminar chat
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto p-4">
@@ -264,8 +315,38 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
                   {info.isGroup && !mine && (
                     <p className="mb-0.5 text-[11px] font-semibold text-brand-700">{m.sender?.name || "Usuario eliminado"}</p>
                   )}
-                  {m.type === "TEXT" && (
-                    <p className="whitespace-pre-wrap">{renderWithMentions(m.body || "", memberNames)}</p>
+                  {m.type === "TEXT" && editingId === m.id ? (
+                    <div className="space-y-2">
+                      <textarea
+                        className="input text-slate-900"
+                        rows={2}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={cancelEdit} className="text-xs underline opacity-80">
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => saveEdit(m.id)}
+                          disabled={savingEdit}
+                          className="text-xs font-semibold underline"
+                        >
+                          {savingEdit ? "Guardando..." : "Guardar"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    m.type === "TEXT" && (
+                      <p className="whitespace-pre-wrap">
+                        {renderWithMentions(m.body || "", memberNames)}
+                        {m.editedAt && (
+                          <span className={`ml-1 text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>(editado)</span>
+                        )}
+                      </p>
+                    )
                   )}
                   {m.type === "IMAGE" && (
                     <a href={`/api/chat/messages/${m.id}`} target="_blank" rel="noreferrer">

@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/session";
 import KanbanBoard from "@/components/KanbanBoard";
 import AddMemberForm from "./AddMemberForm";
 import EditProjectForm from "./EditProjectForm";
+import ProjectMembersList from "./ProjectMembersList";
 import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
@@ -32,6 +33,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   if (!isMember) notFound();
 
   const isOwner = project.ownerId === user.userId;
+  const canManage = isOwner || user.role === "ADMIN";
 
   const serialized = {
     ...project,
@@ -52,12 +54,18 @@ export default async function ProjectPage({ params }: { params: { id: string } }
             Miembros: {project.members.map((m) => m.user.name).join(", ")}
           </p>
         </div>
-        {isOwner && (
+        {canManage && (
           <div className="flex gap-2">
             <EditProjectForm
               projectId={project.id}
               initialName={project.name}
               initialDescription={project.description || ""}
+            />
+            <ProjectMembersList
+              projectId={project.id}
+              ownerId={project.ownerId}
+              currentUserId={user.userId}
+              members={project.members.map((m) => ({ id: m.user.id, name: m.user.name, email: m.user.email }))}
             />
             <AddMemberForm
               projectId={project.id}

@@ -66,7 +66,8 @@ export async function GET() {
           senderName: message.sender?.name || "Usuario eliminado",
           isThreadReply: !!message.parentMessageId,
           parentMessageId: message.parentMessageId,
-          answered: myReplyCount > 0
+          answered: myReplyCount > 0,
+          read: mn.readAt !== null
         };
       })
   );

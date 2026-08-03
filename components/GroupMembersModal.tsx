@@ -80,7 +80,7 @@ export default function GroupMembersModal({
   }
 
   async function handleDeleteGroup() {
-    if (!confirm("¿Eliminar este grupo para todos los miembros? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar este grupo para todos los miembros? Se borran también todos los mensajes. Esta acción no se puede deshacer.")) return;
     setLoading(true);
     setError(null);
     const res = await fetch(`/api/chat/conversations/${conversationId}`, { method: "DELETE" });
@@ -143,13 +143,11 @@ export default function GroupMembersModal({
           {availableToAdd.length === 0 && <p className="mt-1 text-xs text-slate-400">No hay más usuarios para agregar.</p>}
         </div>
 
-        {isCreator && (
-          <div className="border-t border-slate-100 pt-4">
-            <button onClick={handleDeleteGroup} disabled={loading} className="text-sm text-red-600 hover:underline">
-              Eliminar este grupo
-            </button>
-          </div>
-        )}
+        <div className="border-t border-slate-100 pt-4">
+          <button onClick={handleDeleteGroup} disabled={loading} className="text-sm text-red-600 hover:underline">
+            Eliminar este grupo
+          </button>
+        </div>
       </div>
     </div>
   );

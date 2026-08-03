@@ -38,6 +38,7 @@ type MentionItem = {
   isThreadReply: boolean;
   parentMessageId: string | null;
   answered: boolean;
+  read: boolean;
 };
 
 export default function ChatSidebar() {
@@ -112,7 +113,7 @@ export default function ChatSidebar() {
   }
 
   const showingSearch = query.trim().length >= 2;
-  const pendingMentions = mentions.filter((m) => !m.answered);
+  const pendingMentions = mentions.filter((m) => !m.read);
 
   return (
     <div className="card flex h-[calc(100vh-140px)] w-full flex-col overflow-hidden sm:w-72">
@@ -170,17 +171,18 @@ export default function ChatSidebar() {
                 className="block w-full border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-medium text-slate-900">
+                  <p className={`truncate text-sm ${m.read ? "font-medium text-slate-900" : "font-semibold text-slate-900"}`}>
                     {m.senderName} <span className="font-normal text-slate-400">en {m.conversationName}</span>
                   </p>
-                  {!m.answered && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" title="Sin responder" />}
+                  {!m.read && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-600" title="Sin leer" />}
                 </div>
                 <p className="truncate text-xs text-slate-500">
                   {m.body}
                   {m.isThreadReply && <span className="ml-1 text-slate-400">(en un hilo)</span>}
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-400">
-                  {m.answered ? "Ya respondiste" : "Pendiente de respuesta"} · {new Date(m.createdAt).toLocaleDateString("es-ES")}
+                  {m.read ? "Vista" : "Sin leer"} · {m.answered ? "respondida" : "sin responder"} ·{" "}
+                  {new Date(m.createdAt).toLocaleDateString("es-ES")}
                 </p>
               </button>
             ))

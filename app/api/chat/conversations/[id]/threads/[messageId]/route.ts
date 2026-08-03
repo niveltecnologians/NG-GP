@@ -11,6 +11,7 @@ const MESSAGE_SELECT = {
   fileSize: true,
   senderId: true,
   createdAt: true,
+  editedAt: true,
   sender: { select: { id: true, name: true, hasAvatar: true } }
 } as const;
 
@@ -33,6 +34,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string;
     where: { parentMessageId: params.messageId, conversationId: params.id },
     select: MESSAGE_SELECT,
     orderBy: { createdAt: "asc" }
+  });
+
+  // Ver el hilo cuenta como "leída" la mención del mensaje raíz y de sus respuestas.
+  const relatedIds = [params.messageId, ...replies.map((r) => r.id)];
+  await prisma.mention.updateMany({
+    where: { userId: user.userId, messageId: { in: relatedIds }, readAt: null },
+    data: { readAt: new Date() }
   });
 
   return NextResponse.json({

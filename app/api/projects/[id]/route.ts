@@ -45,8 +45,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const project = await assertMember(params.id, user.userId);
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-  if (project.ownerId !== user.userId) {
-    return NextResponse.json({ error: "Solo el dueño puede editar el proyecto" }, { status: 403 });
+  if (project.ownerId !== user.userId && user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Solo el dueño o un administrador pueden editar el proyecto" }, { status: 403 });
   }
 
   const { name, description } = await req.json();
@@ -63,8 +63,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-  if (project.ownerId !== user.userId) {
-    return NextResponse.json({ error: "Solo el dueño puede eliminar el proyecto" }, { status: 403 });
+  if (project.ownerId !== user.userId && user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Solo el dueño o un administrador pueden eliminar el proyecto" }, { status: 403 });
   }
 
   await prisma.project.delete({ where: { id: params.id } });

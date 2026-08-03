@@ -17,6 +17,7 @@ type Message = {
   senderId: string | null;
   sender: Sender;
   createdAt: string;
+  editedAt: string | null;
 };
 
 function formatSize(bytes: number | null) {
@@ -26,10 +27,45 @@ function formatSize(bytes: number | null) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function MessageBody({ m, mine, memberNames }: { m: Message; mine: boolean; memberNames: string[] }) {
+function MessageBody({
+  m,
+  mine,
+  memberNames,
+  editing,
+  editText,
+  onEditTextChange,
+  onSaveEdit,
+  savingEdit
+}: {
+  m: Message;
+  mine: boolean;
+  memberNames: string[];
+  editing?: boolean;
+  editText?: string;
+  onEditTextChange?: (value: string) => void;
+  onSaveEdit?: () => void;
+  savingEdit?: boolean;
+}) {
   return (
     <>
-      {m.type === "TEXT" && <p className="whitespace-pre-wrap">{renderWithMentions(m.body || "", memberNames)}</p>}
+      {m.type === "TEXT" && editing ? (
+        <div className="space-y-2">
+          <textarea
+            className="input text-slate-900"
+            rows={2}
+            value={editText}
+            onChange={(e) => onEditTextChange?.(e.target.value)}
+            autoFocus
+          />
+        </div>
+      ) : (
+        m.type === "TEXT" && (
+          <p className="whitespace-pre-wrap">
+            {renderWithMentions(m.body || "", memberNames)}
+            {m.editedAt && <span className={`ml-1 text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>(editado)</span>}
+          </p>
+        )
+      )}
       {m.type === "IMAGE" && (
         <a href={`/api/chat/messages/${m.id}`} target="_blank" rel="noreferrer">
           <img src={`/api/chat/messages/${m.id}`} alt={m.fileName || "imagen"} className="max-h-48 rounded-lg" />
@@ -71,6 +107,9 @@ export default function ThreadPanel({
   const [sending, setSending] = useState(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +158,37 @@ export default function ThreadPanel({
     const message = await res.json();
     setReplies((prev) => [...prev, message]);
     setText("");
+  }
+
+  function startEdit(m: Message) {
+    setEditingId(m.id);
+    setEditText(m.body || "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText("");
+  }
+
+  async function saveEdit(id: string) {
+    if (!editText.trim()) return;
+    setSavingEdit(true);
+    const res = await fetch(`/api/chat/messages/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: editText })
+    });
+    setSavingEdit(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo editar el mensaje");
+      return;
+    }
+    const updated = await res.json();
+    setParent((prev) => (prev && prev.id === id ? { ...prev, body: updated.body, editedAt: updated.editedAt } : prev));
+    setReplies((prev) => prev.map((r) => (r.id === id ? { ...r, body: updated.body, editedAt: updated.editedAt } : r)));
+    setEditingId(null);
+    setEditText("");
   }
 
   async function uploadFile(file: File, kind: "IMAGE" | "AUDIO" | "FILE") {
@@ -223,10 +293,41 @@ export default function ThreadPanel({
                 <p className="mb-0.5 text-[11px] font-semibold text-brand-700">
                   {parent.sender?.name || "Usuario eliminado"}
                 </p>
-                <MessageBody m={parent} mine={false} memberNames={memberNames} />
-                <p className="mt-1 text-[10px] text-slate-400">
-                  {new Date(parent.createdAt).toLocaleString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                </p>
+                <MessageBody
+                  m={parent}
+                  mine={parent.senderId === currentUserId}
+                  memberNames={memberNames}
+                  editing={editingId === parent.id}
+                  editText={editText}
+                  onEditTextChange={setEditText}
+                  savingEdit={savingEdit}
+                />
+                {editingId === parent.id ? (
+                  <div className="mt-1 flex justify-end gap-2">
+                    <button type="button" onClick={cancelEdit} className="text-[10px] underline text-slate-500">
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => saveEdit(parent.id)}
+                      disabled={savingEdit}
+                      className="text-[10px] font-semibold underline text-slate-500"
+                    >
+                      {savingEdit ? "Guardando..." : "Guardar"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-1 flex items-center justify-between">
+                    <p className="text-[10px] text-slate-400">
+                      {new Date(parent.createdAt).toLocaleString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                    {parent.senderId === currentUserId && parent.type === "TEXT" && (
+                      <button type="button" onClick={() => startEdit(parent)} className="text-[10px] text-slate-400 underline">
+                        Editar
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <p className="mb-2 text-xs font-medium text-slate-400">
@@ -240,10 +341,49 @@ export default function ThreadPanel({
                     <div key={r.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${mine ? "bg-brand-600 text-white" : "bg-slate-100 text-slate-900"}`}>
                         {!mine && <p className="mb-0.5 text-[11px] font-semibold text-brand-700">{r.sender?.name || "Usuario eliminado"}</p>}
-                        <MessageBody m={r} mine={mine} memberNames={memberNames} />
-                        <p className={`mt-1 text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>
-                          {new Date(r.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                        </p>
+                        <MessageBody
+                          m={r}
+                          mine={mine}
+                          memberNames={memberNames}
+                          editing={editingId === r.id}
+                          editText={editText}
+                          onEditTextChange={setEditText}
+                          savingEdit={savingEdit}
+                        />
+                        {editingId === r.id ? (
+                          <div className="mt-1 flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={cancelEdit}
+                              className={`text-[10px] underline ${mine ? "text-white/80" : "text-slate-500"}`}
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => saveEdit(r.id)}
+                              disabled={savingEdit}
+                              className={`text-[10px] font-semibold underline ${mine ? "text-white/80" : "text-slate-500"}`}
+                            >
+                              {savingEdit ? "Guardando..." : "Guardar"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <p className={`text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>
+                              {new Date(r.createdAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                            {mine && r.type === "TEXT" && (
+                              <button
+                                type="button"
+                                onClick={() => startEdit(r)}
+                                className="text-[10px] underline text-white/70"
+                              >
+                                Editar
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

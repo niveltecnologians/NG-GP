@@ -41,3 +41,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const updated = await prisma.ticket.update({ where: { id: params.id }, data: { status } });
   return NextResponse.json(updated);
 }
+
+// Cualquiera de las dos partes (quien lo envió o quien lo recibió) puede
+// eliminar el requerimiento, junto con todas sus respuestas.
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const ticket = await assertAccess(params.id, user.userId);
+  if (!ticket) return NextResponse.json({ error: "Requerimiento no encontrado" }, { status: 404 });
+
+  await prisma.ticket.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}

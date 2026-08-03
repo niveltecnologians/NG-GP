@@ -20,6 +20,14 @@ export default function UsersManager({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const [editRole, setEditRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -56,6 +64,41 @@ export default function UsersManager({
     setUsers((prev) => prev.filter((u) => u.id !== user.id));
   }
 
+  function openEdit(user: UserRow) {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditPassword("");
+    setEditRole(user.role);
+    setEditError(null);
+  }
+
+  async function handleEditSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditLoading(true);
+    setEditError(null);
+    const res = await fetch(`/api/users/${editingUser.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editName,
+        email: editEmail,
+        password: editPassword || undefined,
+        role: editRole
+      })
+    });
+    setEditLoading(false);
+    if (!res.ok) {
+      const data = await res.json();
+      setEditError(data.error || "No se pudo guardar");
+      return;
+    }
+    const updated = await res.json();
+    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+    setEditingUser(null);
+  }
+
   return (
     <div>
       <div className="mb-4 flex justify-end">
@@ -85,13 +128,18 @@ export default function UsersManager({
                   {new Date(u.createdAt).toLocaleDateString("es-ES")}
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  {u.id === currentUserId ? (
-                    <span className="text-xs text-slate-400">Tú</span>
-                  ) : (
-                    <button onClick={() => handleDelete(u)} className="text-sm text-red-600 hover:underline">
-                      Eliminar
+                  <div className="flex justify-end gap-3">
+                    <button onClick={() => openEdit(u)} className="text-sm text-brand-600 hover:underline">
+                      Editar
                     </button>
-                  )}
+                    {u.id === currentUserId ? (
+                      <span className="text-xs text-slate-400">Tú</span>
+                    ) : (
+                      <button onClick={() => handleDelete(u)} className="text-sm text-red-600 hover:underline">
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -125,6 +173,53 @@ export default function UsersManager({
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
               <button type="submit" disabled={loading} className="btn">{loading ? "Creando..." : "Crear"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4" onClick={() => setEditingUser(null)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleEditSave} className="card w-full max-w-sm space-y-4 p-6">
+            <h2 className="text-lg font-semibold">Editar usuario</h2>
+            {editError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{editError}</p>}
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nombre</label>
+              <input className="input" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Email</label>
+              <input type="email" className="input" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} required />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Nueva contraseña</label>
+              <input
+                type="password"
+                className="input"
+                value={editPassword}
+                onChange={(e) => setEditPassword(e.target.value)}
+                minLength={6}
+                placeholder="Déjalo vacío para no cambiarla"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Rol</label>
+              <select
+                className="input"
+                value={editRole}
+                onChange={(e) => setEditRole(e.target.value as "ADMIN" | "MEMBER")}
+                disabled={editingUser.id === currentUserId}
+              >
+                <option value="MEMBER">Miembro</option>
+                <option value="ADMIN">Administrador</option>
+              </select>
+              {editingUser.id === currentUserId && (
+                <p className="mt-1 text-xs text-slate-400">No puedes cambiar tu propio rol.</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
+              <button type="submit" disabled={editLoading} className="btn">{editLoading ? "Guardando..." : "Guardar cambios"}</button>
             </div>
           </form>
         </div>

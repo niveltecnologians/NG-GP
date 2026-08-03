@@ -14,6 +14,7 @@ const MESSAGE_SELECT = {
   fileSize: true,
   senderId: true,
   createdAt: true,
+  editedAt: true,
   sender: { select: { id: true, name: true, hasAvatar: true } }
 } satisfies Prisma.ChatMessageSelect;
 
@@ -59,6 +60,15 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   ]);
 
   const replyCountMap = new Map(replyCounts.map((r) => [r.parentMessageId as string, r._count._all]));
+
+  // Marca como leídas las menciones de esos mensajes (ver el canal ya
+  // cuenta como "vista", sin necesidad de responder).
+  if (messages.length > 0) {
+    await prisma.mention.updateMany({
+      where: { userId: user.userId, messageId: { in: messages.map((m) => m.id) }, readAt: null },
+      data: { readAt: new Date() }
+    });
+  }
 
   await prisma.conversationMember.update({
     where: { conversationId_userId: { conversationId: params.id, userId: user.userId } },
@@ -182,20 +192,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ ...message, createdAt: message.createdAt.toISOString(), replyCount: 0 }, { status: 201 });
 }
 
-// Elimina un grupo por completo (mensajes, hilos e integrantes incluidos).
-// Solo quien creó el grupo puede hacerlo. No aplica a conversaciones 1 a 1.
+// Elimina la conversación por completo (mensajes, hilos e integrantes
+// incluidos). Cualquier participante puede hacerlo, sea 1 a 1 o grupal.
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const conversation = await prisma.conversation.findUnique({ where: { id: params.id } });
-  if (!conversation) return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
-  if (!conversation.isGroup) {
-    return NextResponse.json({ error: "Las conversaciones 1 a 1 no se pueden eliminar" }, { status: 400 });
-  }
-  if (conversation.createdById !== user.userId) {
-    return NextResponse.json({ error: "Solo quien creó el grupo puede eliminarlo" }, { status: 403 });
-  }
+  const isMember = await assertMembership(params.id, user.userId);
+  if (!isMember) return NextResponse.json({ error: "No tienes acceso a esta conversación" }, { status: 403 });
 
   await prisma.conversation.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });

@@ -55,6 +55,12 @@ export default function ThreadView({ ticket, currentUserId }: { ticket: Ticket; 
     router.refresh();
   }
 
+  async function handleDelete() {
+    if (!confirm("¿Eliminar este requerimiento y sus respuestas? Esta acción no se puede deshacer.")) return;
+    const res = await fetch(`/api/inbox/${ticket.id}`, { method: "DELETE" });
+    if (res.ok) router.push("/inbox");
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-4 flex items-start justify-between gap-4">
@@ -65,11 +71,16 @@ export default function ThreadView({ ticket, currentUserId }: { ticket: Ticket; 
           </p>
           <p className="text-xs text-slate-400">{new Date(ticket.createdAt).toLocaleString("es-ES")}</p>
         </div>
-        <select className="input w-40" value={status} onChange={(e) => handleStatusChange(e.target.value)}>
-          {Object.entries(STATUS_LABEL).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <select className="input w-40" value={status} onChange={(e) => handleStatusChange(e.target.value)}>
+            {Object.entries(STATUS_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <button onClick={handleDelete} className="text-xs text-red-600 hover:underline">
+            Eliminar requerimiento
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">

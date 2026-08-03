@@ -8,8 +8,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-  if (project.ownerId !== user.userId) {
-    return NextResponse.json({ error: "Solo el dueño puede agregar miembros" }, { status: 403 });
+  if (project.ownerId !== user.userId && user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Solo el dueño o un administrador pueden agregar miembros" }, { status: 403 });
   }
 
   const { email, userId } = await req.json();
