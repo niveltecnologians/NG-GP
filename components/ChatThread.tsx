@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { upload } from "@vercel/blob/client";
+import { safeBlobPathname } from "@/lib/blobPath";
 import ThreadPanel from "./ThreadPanel";
 import GroupMembersModal from "./GroupMembersModal";
 import { renderWithMentions } from "./mentions";
@@ -109,10 +110,11 @@ export default function ChatThread({ currentUserId, conversationId }: { currentU
     setSending(true);
     setError(null);
     try {
-      const blob = await upload(file.name, file, {
+      const blob = await upload(safeBlobPathname(file.name), file, {
         access: "public",
         handleUploadUrl: "/api/blob/chat-file",
-        clientPayload: JSON.stringify({ conversationId })
+        clientPayload: JSON.stringify({ conversationId }),
+        multipart: true
       });
       const res = await fetch(`/api/chat/conversations/${conversationId}`, {
         method: "POST",

@@ -33,7 +33,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
         return {
           addRandomSuffix: true,
-          maximumSizeInBytes: 100 * 1024 * 1024 // 100MB
+          maximumSizeInBytes: 500 * 1024 * 1024 // 500MB
         };
       },
       onUploadCompleted: async () => {

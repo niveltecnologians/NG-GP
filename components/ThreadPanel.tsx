@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
+import { safeBlobPathname } from "@/lib/blobPath";
 import { renderWithMentions } from "./mentions";
 
 type Sender = { id: string; name: string; hasAvatar: boolean } | null;
@@ -124,10 +125,11 @@ export default function ThreadPanel({
     setSending(true);
     setError(null);
     try {
-      const blob = await upload(file.name, file, {
+      const blob = await upload(safeBlobPathname(file.name), file, {
         access: "public",
         handleUploadUrl: "/api/blob/chat-file",
-        clientPayload: JSON.stringify({ conversationId })
+        clientPayload: JSON.stringify({ conversationId }),
+        multipart: true
       });
       const res = await fetch(`/api/chat/conversations/${conversationId}`, {
         method: "POST",

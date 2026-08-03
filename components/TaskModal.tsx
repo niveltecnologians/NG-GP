@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
+import { safeBlobPathname } from "@/lib/blobPath";
 import {
   Task,
   ProjectMember,
@@ -106,10 +107,11 @@ export default function TaskModal({ projectId, members, task, onClose, onSaved, 
     // sin tocar los que ya estaban (nunca se borra nada al adjuntar).
     for (const file of files) {
       try {
-        const blob = await upload(file.name, file, {
+        const blob = await upload(safeBlobPathname(file.name), file, {
           access: "public",
           handleUploadUrl: "/api/blob/task-attachment",
-          clientPayload: JSON.stringify({ taskId: current.id })
+          clientPayload: JSON.stringify({ taskId: current.id }),
+          multipart: true
         });
 
         const res = await fetch(`/api/tasks/${current.id}/attachments`, {
