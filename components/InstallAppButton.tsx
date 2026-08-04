@@ -8,7 +8,9 @@ import { useEffect, useState } from "react";
 // - iPhone/iPad (Safari): no existe ese evento, así que el botón abre un
 //   mini instructivo ("toca compartir → Agregar a inicio").
 // - Si ya está instalada (se abrió como app, "standalone"), el botón se oculta.
-export default function InstallAppButton() {
+// `expanded`: para usarlo dentro de una lista (como el menú de celular),
+// donde siempre se ve el texto completo, no solo el ícono.
+export default function InstallAppButton({ expanded = false }: { expanded?: boolean }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isIos, setIsIos] = useState(false);
@@ -58,10 +60,14 @@ export default function InstallAppButton() {
     <>
       <button
         onClick={handleClick}
-        className="shrink-0 whitespace-nowrap text-xs text-slate-400 hover:text-brand-600"
+        className={
+          expanded
+            ? "flex w-full items-center gap-2 rounded-md px-1 py-2 text-left text-sm font-medium text-brand-700 hover:bg-slate-100"
+            : "shrink-0 whitespace-nowrap text-xs text-slate-400 hover:text-brand-600"
+        }
         title="Instalar esta app en tu celular o computadora"
       >
-        📲 <span className="hidden sm:inline">Instalar app</span>
+        📲 <span className={expanded ? "" : "hidden sm:inline"}>Instalar app</span>
       </button>
 
       {showIosHelp && (
