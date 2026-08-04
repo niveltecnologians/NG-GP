@@ -17,6 +17,20 @@ Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, pue
 - **Bandeja de entrada**: se corrigió un error por el que el contador de "no leídos" del menú de arriba no bajaba al leer un requerimiento (quedaba pegado); ahora baja de inmediato.
 - **Tableros de proyecto configurables**: al crear un proyecto ahora eliges el **"Modo del tablero"**: "Tareas" (las columnas de siempre: Por hacer / En progreso / En revisión / Terminado) o "Administrativo" (Prospectos / Diseño / Presupuesto / Ejecución / Liquidación / Pos venta). El tablero Kanban, el menú de "Estado" de cada tarea y el informe del proyecto se ajustan solos según el modo elegido. El modo se define al crear el proyecto y no se puede cambiar después (para no dejar tareas con un estado que ya no existe en el tablero).
 
+## Instalarla como app en el celular (iOS y Android)
+
+La app ahora es una **PWA** (Progressive Web App): se puede "instalar" desde el navegador del celular, queda con ícono en la pantalla de inicio y se abre a pantalla completa, sin la barra del navegador — se siente como una app normal. No requiere pasar por App Store ni Google Play, es gratis y funciona igual en iPhone y Android. Como con cualquier otra actualización: primero subes este código a tu repositorio de GitHub (reemplazando los archivos anteriores) y Vercel redespliega solo; recién ahí la app queda instalable en la URL de producción.
+
+**Ahora hay un botón "📲 Instalar app" arriba a la derecha, junto a "🔔 Activar avisos"** (con sesión iniciada):
+
+- **En Android (Chrome/Edge)**: al tocar el botón, el propio navegador abre el cuadro de diálogo de instalación — confirmas y listo, queda el ícono en el cajón de aplicaciones.
+- **En iPhone/iPad**: Safari no permite que una web dispare ese diálogo por código (es una limitación de Apple, no de la app), así que el botón abre un mini instructivo: tocar el botón de compartir de Safari → "Agregar a inicio". Tiene que ser desde Safari, no desde Chrome.
+- El botón se oculta solo una vez que la app ya está instalada.
+
+El ícono que se usa es el logo personalizado de `/settings` si ya subiste uno; si no, usa un ícono genérico incluido en `public/icons/`. El nombre que aparece bajo el ícono también sigue al nombre de la app configurado en `/settings`.
+
+**Diferencia con una app "de verdad" en las tiendas**: esta instalación (PWA) no pasa por App Store ni Google Play, así que no hay que pagar cuentas de desarrollador ni esperar revisión — se instala directo desde el navegador con el botón de arriba. Si en el futuro quieres una publicación real en las tiendas, es un proyecto aparte (usando algo como Capacitor) que sí requiere cuenta de desarrollador de Apple (US$99/año), cuenta de Google Play (US$25 pago único) y compilar la parte de iOS desde una Mac.
+
 ## Referentes investigados
 
 Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monday.com**, **Asana**, **ClickUp**, **Trello**, **Wrike** y alternativas open source como **OpenProject**, **Leantime** y **Freedcamp**. De ahí se tomaron los conceptos base: tableros por proyecto con columnas de estado (Kanban), tarjetas de tarea con responsable/prioridad/fecha límite, y archivos adjuntos por tarea. La bandeja de entrada tipo correo (para "requerimientos" con trazabilidad de respuestas) es un añadido específico de este proyecto, inspirado en el sistema de tickets de herramientas de soporte.
