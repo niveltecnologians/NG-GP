@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { getCurrentUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
@@ -6,11 +6,32 @@ import { getAppSettings } from "@/lib/settings";
 import Navbar from "@/components/Navbar";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 
+// Permite "Agregar a pantalla de inicio" en iOS y Android: la app se abre en
+// pantalla completa, sin la barra del navegador, como una app instalada.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#4f46e5"
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getAppSettings();
+  const icon = settings.hasLogo ? "/api/settings/logo-image" : "/icons/icon-192.png";
+  const appleIcon = settings.hasLogo ? "/api/settings/logo-image" : "/icons/apple-touch-icon.png";
   return {
     title: settings.appName,
-    description: "Seguimiento de proyectos, tareas y requerimientos del equipo"
+    description: "Seguimiento de proyectos, tareas y requerimientos del equipo",
+    manifest: "/manifest.webmanifest",
+    icons: {
+      icon,
+      apple: appleIcon
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: settings.appName
+    }
   };
 }
 

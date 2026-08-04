@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionPayload } from "@/lib/auth";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export default function Navbar({
   user,
@@ -65,7 +66,7 @@ export default function Navbar({
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     if (typeof document !== "undefined" && document.visibilityState === "visible" && document.hasFocus()) return;
     try {
-      new Notification(title, { body, icon: "/favicon.ico" });
+      new Notification(title, { body, icon: "/icons/icon-192.png" });
     } catch {
       // algunos navegadores móviles no soportan `new Notification(...)`; se ignora en silencio.
     }
@@ -146,6 +147,7 @@ export default function Navbar({
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          <InstallAppButton />
           {notifPermission === "default" && (
             <button
               onClick={handleEnableNotifications}
