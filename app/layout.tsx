@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getAppSettings } from "@/lib/settings";
 import Navbar from "@/components/Navbar";
 import PresenceHeartbeat from "@/components/PresenceHeartbeat";
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 // Permite "Agregar a pantalla de inicio" en iOS y Android: la app se abre en
 // pantalla completa, sin la barra del navegador, como una app instalada.
@@ -59,6 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="es">
       <body className={bodyClassName} style={bodyStyle}>
+        <ServiceWorkerRegister />
         {user && <PresenceHeartbeat />}
         {user && <Navbar user={user} appName={settings.appName} hasLogo={settings.hasLogo} />}
         <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
