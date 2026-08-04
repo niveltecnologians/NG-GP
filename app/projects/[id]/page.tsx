@@ -57,7 +57,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
           </p>
         </div>
         {canManage && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <EditProjectForm
               projectId={project.id}
               initialName={project.name}
