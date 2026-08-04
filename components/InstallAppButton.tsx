@@ -58,10 +58,10 @@ export default function InstallAppButton() {
     <>
       <button
         onClick={handleClick}
-        className="hidden text-xs text-slate-400 hover:text-brand-600 sm:inline"
+        className="shrink-0 whitespace-nowrap text-xs text-slate-400 hover:text-brand-600"
         title="Instalar esta app en tu celular o computadora"
       >
-        📲 Instalar app
+        📲 <span className="hidden sm:inline">Instalar app</span>
       </button>
 
       {showIosHelp && (
