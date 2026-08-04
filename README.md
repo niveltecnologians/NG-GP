@@ -29,6 +29,10 @@ La app ahora es una **PWA** (Progressive Web App): se puede "instalar" desde el 
 
 El ícono que se usa es el logo personalizado de `/settings` si ya subiste uno; si no, usa un ícono genérico incluido en `public/icons/`. El nombre que aparece bajo el ícono también sigue al nombre de la app configurado en `/settings`.
 
+Se agregó además un **service worker** (`public/sw.js`, no guarda nada en caché, solo deja pasar las peticiones a internet tal cual) — es un requisito técnico de Android/Chrome para que la instalación sea "de verdad" (ícono propio, pantalla completa) en vez de un simple acceso directo que abre el navegador con la barra de direcciones visible.
+
+**Importante si ya habías agregado el ícono antes de esta actualización**: en el celular, borra ese ícono viejo de la pantalla de inicio (mantén presionado → Eliminar) y vuelve a agregarlo después de subir esta versión a GitHub y que Vercel redespliegue — si no, puede seguir comportándose como el acceso directo anterior porque quedó guardado con la versión vieja del sitio.
+
 **Diferencia con una app "de verdad" en las tiendas**: esta instalación (PWA) no pasa por App Store ni Google Play, así que no hay que pagar cuentas de desarrollador ni esperar revisión — se instala directo desde el navegador con el botón de arriba. Si en el futuro quieres una publicación real en las tiendas, es un proyecto aparte (usando algo como Capacitor) que sí requiere cuenta de desarrollador de Apple (US$99/año), cuenta de Google Play (US$25 pago único) y compilar la parte de iOS desde una Mac.
 
 ## Referentes investigados
