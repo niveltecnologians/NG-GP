@@ -89,6 +89,17 @@ export default function Navbar({
     router.refresh();
   }
 
+  // Fuerza a traer la versión más nueva del sitio. Sirve sobre todo cuando
+  // la app está instalada en el celular: al no tener barra de navegador, no
+  // hay botón de recargar, así que este lo reemplaza (y de paso avisa al
+  // service worker que revise si hay una versión nueva).
+  function handleRefresh() {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.update()));
+    }
+    window.location.reload();
+  }
+
   const links = [
     { href: "/dashboard", label: "Proyectos", badge: 0 },
     { href: "/inbox", label: "Bandeja de entrada", badge: inboxUnread },
@@ -117,21 +128,31 @@ export default function Navbar({
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-7">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            {hasLogo && !logoError ? (
-              <img
-                src="/api/settings/logo-image"
-                alt={appName}
-                onError={() => setLogoError(true)}
-                className="h-8 w-8 rounded-lg object-contain"
-              />
-            ) : (
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
-                {appInitials}
-              </span>
-            )}
-            <span className="text-base font-bold text-slate-900">{appName}</span>
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link href="/dashboard" className="flex items-center gap-2">
+              {hasLogo && !logoError ? (
+                <img
+                  src="/api/settings/logo-image"
+                  alt={appName}
+                  onError={() => setLogoError(true)}
+                  className="h-8 w-8 rounded-lg object-contain"
+                />
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+                  {appInitials}
+                </span>
+              )}
+              <span className="text-base font-bold text-slate-900">{appName}</span>
+            </Link>
+            <button
+              onClick={handleRefresh}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-brand-600"
+              title="Actualizar la app a la versión más reciente"
+              aria-label="Actualizar"
+            >
+              🔄
+            </button>
+          </div>
           {/* Menú horizontal: solo en pantallas medianas o más grandes. */}
           <nav className="hidden gap-1 text-sm font-medium text-slate-600 sm:flex">
             {links.map((l) => {
