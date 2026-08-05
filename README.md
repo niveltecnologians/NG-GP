@@ -37,6 +37,8 @@ Se agregó además un **service worker** (`public/sw.js`, no guarda nada en cach
 
 **Diferencia con una app "de verdad" en las tiendas**: esta instalación (PWA) no pasa por App Store ni Google Play, así que no hay que pagar cuentas de desarrollador ni esperar revisión — se instala directo desde el navegador con el botón de arriba. Si en el futuro quieres una publicación real en las tiendas, es un proyecto aparte (usando algo como Capacitor) que sí requiere cuenta de desarrollador de Apple (US$99/año), cuenta de Google Play (US$25 pago único) y compilar la parte de iOS desde una Mac.
 
+**Botón "🔄" junto al nombre de la app**: recarga la página trayendo la versión más nueva del sitio. Es útil sobre todo en la app instalada del celular, que al no tener barra de navegador no tiene un botón de recargar propio — así que si después de actualizar y redesplegar en Vercel una función nueva no aparece, lo primero es tocar este botón (o cerrar y volver a abrir la app).
+
 ## Informe por profesional (nuevo)
 
 En `/reports` ahora hay dos pestañas: **"Por proyecto"** (la de siempre) y **"Por profesional"** (nueva). En esta última eliges a una persona del equipo y ves: en cuántos proyectos está trabajando y cuáles son, cuántas tareas tiene asignadas en total (con el detalle de cada una: proyecto, estado, prioridad, fecha límite), cuántas ya terminó, y cuántas tiene vencidas. También se puede exportar a CSV o imprimir, igual que el informe por proyecto. No hace falta ningún cambio de base de datos para esto — usa la misma información que ya existía, solo la agrupa distinto.
