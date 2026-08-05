@@ -37,6 +37,10 @@ Se agregó además un **service worker** (`public/sw.js`, no guarda nada en cach
 
 **Diferencia con una app "de verdad" en las tiendas**: esta instalación (PWA) no pasa por App Store ni Google Play, así que no hay que pagar cuentas de desarrollador ni esperar revisión — se instala directo desde el navegador con el botón de arriba. Si en el futuro quieres una publicación real en las tiendas, es un proyecto aparte (usando algo como Capacitor) que sí requiere cuenta de desarrollador de Apple (US$99/año), cuenta de Google Play (US$25 pago único) y compilar la parte de iOS desde una Mac.
 
+## Informe por profesional (nuevo)
+
+En `/reports` ahora hay dos pestañas: **"Por proyecto"** (la de siempre) y **"Por profesional"** (nueva). En esta última eliges a una persona del equipo y ves: en cuántos proyectos está trabajando y cuáles son, cuántas tareas tiene asignadas en total (con el detalle de cada una: proyecto, estado, prioridad, fecha límite), cuántas ya terminó, y cuántas tiene vencidas. También se puede exportar a CSV o imprimir, igual que el informe por proyecto. No hace falta ningún cambio de base de datos para esto — usa la misma información que ya existía, solo la agrupa distinto.
+
 ## Referentes investigados
 
 Se revisaron plataformas similares antes de diseñar el modelo de datos: **Monday.com**, **Asana**, **ClickUp**, **Trello**, **Wrike** y alternativas open source como **OpenProject**, **Leantime** y **Freedcamp**. De ahí se tomaron los conceptos base: tableros por proyecto con columnas de estado (Kanban), tarjetas de tarea con responsable/prioridad/fecha límite, y archivos adjuntos por tarea. La bandeja de entrada tipo correo (para "requerimientos" con trazabilidad de respuestas) es un añadido específico de este proyecto, inspirado en el sistema de tickets de herramientas de soporte.
