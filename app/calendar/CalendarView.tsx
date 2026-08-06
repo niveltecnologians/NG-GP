@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type UserOption = { id: string; name: string; email: string };
 
@@ -21,6 +21,17 @@ const STATUS_STYLES: Record<string, string> = {
   ACCEPTED: "bg-emerald-100 text-emerald-700",
   DECLINED: "bg-red-100 text-red-700"
 };
+const CHIP_STYLES: Record<string, string> = {
+  PENDING: "bg-amber-100 text-amber-700",
+  ACCEPTED: "bg-brand-100 text-brand-700",
+  DECLINED: "bg-red-100 text-red-500 line-through"
+};
+
+const WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function dateKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function toLocalInputValue(date: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -29,30 +40,39 @@ function toLocalInputValue(date: Date) {
   )}`;
 }
 
+// Genera los 42 días (6 semanas) que se ven en la grilla del mes, empezando
+// en lunes, incluyendo los días de relleno del mes anterior/siguiente.
+function getMonthGrid(monthDate: Date) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const firstWeekday = (firstOfMonth.getDay() + 6) % 7; // 0 = lunes
+  const start = new Date(year, month, 1 - firstWeekday);
+  return Array.from({ length: 42 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+}
+
 export default function CalendarView({
   currentUserId,
-  currentUserName,
-  isAdmin
+  currentUserName
 }: {
   currentUserId: string;
   currentUserName: string;
-  isAdmin: boolean;
 }) {
   const [users, setUsers] = useState<UserOption[]>([]);
   const [viewingUserId, setViewingUserId] = useState(currentUserId);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formDate, setFormDate] = useState<Date | null>(null);
+  const [monthCursor, setMonthCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   useEffect(() => {
-    if (isAdmin) {
-      fetch("/api/users/list")
-        .then((r) => r.json())
-        .then((data) => setUsers(data))
-        .catch(() => {});
-    }
-  }, [isAdmin]);
+    fetch("/api/users/list")
+      .then((r) => r.json())
+      .then((data) => setUsers(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     load();
@@ -88,28 +108,44 @@ export default function CalendarView({
   const viewingSelf = viewingUserId === currentUserId;
   const viewingName = viewingSelf ? "Tú" : users.find((u) => u.id === viewingUserId)?.name || "";
 
-  const now = new Date();
-  const sorted = [...events].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, EventRow[]>();
+    events.forEach((e) => {
+      const key = dateKey(new Date(e.startsAt));
+      const list = map.get(key) || [];
+      list.push(e);
+      map.set(key, list);
+    });
+    map.forEach((list) => list.sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()));
+    return map;
+  }, [events]);
+
+  const pending = events.filter((e) => e.status === "PENDING");
+  const days = getMonthGrid(monthCursor);
+  const today = new Date();
+  const monthLabel = monthCursor.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const selectedEvents = eventsByDay.get(dateKey(selectedDate)) || [];
+
+  function openFormFor(date: Date) {
+    setFormDate(date);
+    setShowForm(true);
+  }
 
   return (
     <div>
       <div className="card mb-5 flex flex-wrap items-center justify-between gap-3 p-4">
-        {isAdmin ? (
-          <div>
-            <label className="mb-1 block text-sm font-medium">Ver calendario de</label>
-            <select className="input w-64" value={viewingUserId} onChange={(e) => setViewingUserId(e.target.value)}>
-              <option value={currentUserId}>Yo ({currentUserName})</option>
-              {users
-                .filter((u) => u.id !== currentUserId)
-                .map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-            </select>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">Tu agenda</p>
-        )}
-        <button className="btn" onClick={() => setShowForm(true)}>
+        <div>
+          <label className="mb-1 block text-sm font-medium">Ver calendario de</label>
+          <select className="input w-64" value={viewingUserId} onChange={(e) => setViewingUserId(e.target.value)}>
+            <option value={currentUserId}>Yo ({currentUserName})</option>
+            {users
+              .filter((u) => u.id !== currentUserId)
+              .map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+          </select>
+        </div>
+        <button className="btn" onClick={() => openFormFor(selectedDate)}>
           + Nueva cita
         </button>
       </div>
@@ -121,66 +157,181 @@ export default function CalendarView({
         </p>
       )}
 
-      {loading ? (
-        <p className="text-sm text-slate-400">Cargando...</p>
-      ) : sorted.length === 0 ? (
-        <div className="card p-10 text-center text-slate-500">No hay citas todavía.</div>
-      ) : (
-        <div className="space-y-2">
-          {sorted.map((e) => {
-            const start = new Date(e.startsAt);
-            const isPast = start < now;
-            const canRespond = viewingSelf && e.status === "PENDING";
-            const canManage = viewingSelf || e.createdBy?.id === currentUserId || isAdmin;
-            return (
-              <div key={e.id} className={`card p-4 ${isPast ? "opacity-60" : ""}`}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-900">{e.title}</p>
-                      <span className={`badge ${STATUS_STYLES[e.status]}`}>{STATUS_LABELS[e.status]}</span>
-                    </div>
-                    <p className="mt-0.5 text-sm text-slate-500">
-                      {start.toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" })}
-                      {e.endsAt && ` – ${new Date(e.endsAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
-                    </p>
-                    {e.description && <p className="mt-1 text-sm text-slate-600">{e.description}</p>}
-                    {e.createdBy && e.createdBy.id !== e.userId && (
-                      <p className="mt-1 text-xs text-slate-400">Agendada por {e.createdBy.name}</p>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {canRespond && (
-                      <>
-                        <button onClick={() => handleRespond(e.id, "ACCEPTED")} className="btn py-1.5 text-xs">
-                          Aceptar
-                        </button>
-                        <button
-                          onClick={() => handleRespond(e.id, "DECLINED")}
-                          className="btn-secondary py-1.5 text-xs text-red-600"
-                        >
-                          Rechazar
-                        </button>
-                      </>
-                    )}
-                    {canManage && (
-                      <button onClick={() => handleDelete(e.id)} className="text-xs text-red-600 hover:underline">
-                        Eliminar
-                      </button>
-                    )}
-                  </div>
-                </div>
+      {viewingSelf && pending.length > 0 && (
+        <div className="mb-5 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-700">Pendientes de responder</h3>
+          {pending.map((e) => (
+            <div key={e.id} className="card flex flex-wrap items-center justify-between gap-2 border-amber-200 bg-amber-50/60 p-3">
+              <div>
+                <p className="text-sm font-medium text-slate-900">{e.title}</p>
+                <p className="text-xs text-slate-500">
+                  {new Date(e.startsAt).toLocaleString("es-ES", { dateStyle: "full", timeStyle: "short" })}
+                  {e.createdBy && ` · Agendada por ${e.createdBy.name}`}
+                </p>
               </div>
-            );
-          })}
+              <div className="flex shrink-0 gap-2">
+                <button onClick={() => handleRespond(e.id, "ACCEPTED")} className="btn py-1.5 text-xs">
+                  Aceptar
+                </button>
+                <button onClick={() => handleRespond(e.id, "DECLINED")} className="btn-secondary py-1.5 text-xs text-red-600">
+                  Rechazar
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="card p-3">
+          <div className="mb-3 flex items-center justify-between px-1">
+            <button
+              className="btn-secondary py-1.5 text-xs"
+              onClick={() => setMonthCursor((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+            >
+              ‹
+            </button>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold capitalize text-slate-800">{monthLabel}</h2>
+              <button
+                className="text-xs text-brand-600 hover:underline"
+                onClick={() => {
+                  setMonthCursor(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+                  setSelectedDate(new Date());
+                }}
+              >
+                Hoy
+              </button>
+            </div>
+            <button
+              className="btn-secondary py-1.5 text-xs"
+              onClick={() => setMonthCursor((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+            >
+              ›
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 px-1 pb-1 text-center text-[11px] font-medium text-slate-400">
+            {WEEKDAYS.map((w) => (
+              <div key={w}>{w}</div>
+            ))}
+          </div>
+
+          {loading ? (
+            <p className="p-6 text-center text-sm text-slate-400">Cargando...</p>
+          ) : (
+            <div className="grid grid-cols-7 gap-1">
+              {days.map((d) => {
+                const key = dateKey(d);
+                const dayEvents = eventsByDay.get(key) || [];
+                const inMonth = d.getMonth() === monthCursor.getMonth();
+                const isToday = dateKey(d) === dateKey(today);
+                const isSelected = dateKey(d) === dateKey(selectedDate);
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedDate(d)}
+                    className={`flex min-h-[72px] flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left transition sm:min-h-[92px] ${
+                      isSelected
+                        ? "border-brand-400 bg-brand-50"
+                        : inMonth
+                        ? "border-slate-100 hover:border-brand-200 hover:bg-slate-50"
+                        : "border-transparent bg-slate-50/40"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
+                        isToday ? "bg-brand-600 font-semibold text-white" : inMonth ? "text-slate-700" : "text-slate-300"
+                      }`}
+                    >
+                      {d.getDate()}
+                    </span>
+                    <div className="flex w-full flex-col gap-0.5">
+                      {dayEvents.slice(0, 2).map((e) => (
+                        <span
+                          key={e.id}
+                          className={`truncate rounded px-1 py-0.5 text-[10px] ${CHIP_STYLES[e.status]}`}
+                          title={e.title}
+                        >
+                          {e.title}
+                        </span>
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <span className="text-[10px] text-slate-400">+{dayEvents.length - 2} más</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-800">
+              {selectedDate.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+            </h3>
+            <button className="text-xs text-brand-600 hover:underline" onClick={() => openFormFor(selectedDate)}>
+              + Agendar
+            </button>
+          </div>
+
+          {selectedEvents.length === 0 ? (
+            <p className="text-sm text-slate-400">No hay citas este día.</p>
+          ) : (
+            <div className="space-y-2">
+              {selectedEvents.map((e) => {
+                const canRespond = viewingSelf && e.status === "PENDING";
+                const canManage = viewingSelf || e.createdBy?.id === currentUserId;
+                return (
+                  <div key={e.id} className="rounded-lg border border-slate-100 p-3">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-slate-900">{e.title}</p>
+                      <span className={`badge ${STATUS_STYLES[e.status]}`}>{STATUS_LABELS[e.status]}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {new Date(e.startsAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                      {e.endsAt && ` – ${new Date(e.endsAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`}
+                    </p>
+                    {e.description && <p className="mt-1 text-xs text-slate-600">{e.description}</p>}
+                    {e.createdBy && e.createdBy.id !== e.userId && (
+                      <p className="mt-1 text-[11px] text-slate-400">Agendada por {e.createdBy.name}</p>
+                    )}
+                    <div className="mt-2 flex gap-2">
+                      {canRespond && (
+                        <>
+                          <button onClick={() => handleRespond(e.id, "ACCEPTED")} className="btn py-1 text-xs">
+                            Aceptar
+                          </button>
+                          <button
+                            onClick={() => handleRespond(e.id, "DECLINED")}
+                            className="btn-secondary py-1 text-xs text-red-600"
+                          >
+                            Rechazar
+                          </button>
+                        </>
+                      )}
+                      {canManage && (
+                        <button onClick={() => handleDelete(e.id)} className="text-xs text-red-600 hover:underline">
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       {showForm && (
         <NewEventForm
           targetUserId={viewingUserId}
           targetUserName={viewingName}
           isSelf={viewingSelf}
+          initialDate={formDate || selectedDate}
           onClose={() => setShowForm(false)}
           onCreated={(event) => {
             setEvents((prev) => [...prev, event]);
@@ -188,7 +339,6 @@ export default function CalendarView({
           }}
         />
       )}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );
 }
@@ -197,18 +347,24 @@ function NewEventForm({
   targetUserId,
   targetUserName,
   isSelf,
+  initialDate,
   onClose,
   onCreated
 }: {
   targetUserId: string;
   targetUserName: string;
   isSelf: boolean;
+  initialDate: Date;
   onClose: () => void;
   onCreated: (event: EventRow) => void;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [startsAt, setStartsAt] = useState(() => toLocalInputValue(new Date(Date.now() + 60 * 60 * 1000)));
+  const [startsAt, setStartsAt] = useState(() => {
+    const d = new Date(initialDate);
+    d.setHours(Math.max(d.getHours(), 9), 0, 0, 0);
+    return toLocalInputValue(d);
+  });
   const [endsAt, setEndsAt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,9 +401,7 @@ function NewEventForm({
         onSubmit={handleSubmit}
         className="card w-full max-w-md space-y-4 p-6"
       >
-        <h2 className="text-lg font-semibold">
-          {isSelf ? "Nueva cita" : `Agendar cita para ${targetUserName}`}
-        </h2>
+        <h2 className="text-lg font-semibold">{isSelf ? "Nueva cita" : `Agendar cita para ${targetUserName}`}</h2>
         {!isSelf && (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Le va a quedar pendiente de aceptar; le llega un aviso a su bandeja de entrada.

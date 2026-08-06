@@ -9,12 +9,11 @@ export default async function CalendarPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Calendario</h1>
         <p className="text-sm text-slate-500">
-          {user.role === "ADMIN"
-            ? "Tu agenda personal. Como administrador, también puedes ver la disponibilidad de cualquier persona y agendarle una cita."
-            : "Tu agenda personal. Si un administrador te agenda algo, te va a pedir que la aceptes o la rechaces aquí."}
+          Tu agenda personal. También puedes ver la disponibilidad de cualquier persona del equipo y agendarle una
+          cita; le queda pendiente de aceptar en su bandeja de entrada y en su propio calendario.
         </p>
       </div>
-      <CalendarView currentUserId={user.userId} currentUserName={user.name} isAdmin={user.role === "ADMIN"} />
+      <CalendarView currentUserId={user.userId} currentUserName={user.name} />
     </div>
   );
 }

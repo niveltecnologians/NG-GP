@@ -17,16 +17,13 @@ const EVENT_SELECT = {
 } as const;
 
 // Lista los eventos del calendario de un usuario. Por defecto, el propio;
-// un administrador puede pedir el de cualquier otra persona (para ver su
-// disponibilidad antes de agendarle algo).
+// cualquier persona del equipo puede pedir el de cualquier otra (para ver
+// su disponibilidad antes de agendarle algo).
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const requestedUserId = req.nextUrl.searchParams.get("userId") || user.userId;
-  if (requestedUserId !== user.userId && user.role !== "ADMIN") {
-    return NextResponse.json({ error: "No tienes permiso para ver este calendario" }, { status: 403 });
-  }
 
   const events = await prisma.calendarEvent.findMany({
     where: { userId: requestedUserId },
@@ -45,9 +42,10 @@ export async function GET(req: NextRequest) {
   );
 }
 
-// Crea un evento. Si es para uno mismo, queda aceptado al instante. Si un
-// administrador lo agenda para otra persona, queda pendiente y esa persona
-// recibe un aviso en su bandeja de entrada para aceptarlo o rechazarlo.
+// Crea un evento. Si es para uno mismo, queda aceptado al instante. Si se
+// agenda para otra persona (cualquier usuario puede hacerlo, no solo
+// administradores), queda pendiente y esa persona recibe un aviso en su
+// bandeja de entrada para aceptarlo o rechazarlo.
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -59,9 +57,6 @@ export async function POST(req: NextRequest) {
 
   const targetUserId = userId || user.userId;
   const isSelf = targetUserId === user.userId;
-  if (!isSelf && user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Solo un administrador puede agendarle una cita a otra persona" }, { status: 403 });
-  }
 
   const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
   if (!targetUser) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
