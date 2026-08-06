@@ -72,6 +72,12 @@ enum ChatMessageType {
   FILE
 }
 
+enum EventStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -108,6 +114,9 @@ model User {
   conversationsCreated Conversation[]       @relation("ConversationCreator")
   conversations        ConversationMember[]
   mentions             Mention[]
+
+  calendarEvents       CalendarEvent[]      @relation("CalendarOwner")
+  calendarEventsCreated CalendarEvent[]     @relation("CalendarCreator")
 }
 
 model InviteCode {
@@ -317,4 +326,31 @@ model ConversationMember {
   joinedAt       DateTime     @default(now())
 
   @@unique([conversationId, userId])
+}
+
+// Calendario personal de cada usuario. Si uno mismo crea el evento, queda
+// aceptado al instante; si un administrador lo agenda para otra persona,
+// queda "PENDING" hasta que esa persona lo acepte o lo rechace (y le llega
+// un aviso a su bandeja de entrada para que no se le pase).
+model CalendarEvent {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  status      EventStatus @default(ACCEPTED)
+
+  userId      String
+  user        User        @relation("CalendarOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?       @relation("CalendarCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  respondedAt DateTime?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([startsAt])
 }

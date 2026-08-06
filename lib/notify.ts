@@ -27,3 +27,32 @@ export async function notifyTaskAssignment({
     }
   });
 }
+
+// Avisa por la bandeja de entrada cuando un administrador agenda una cita
+// para otra persona (queda pendiente de aceptar en su calendario).
+export async function notifyCalendarInvite({
+  userId,
+  actorId,
+  actorName,
+  eventTitle,
+  startsAt
+}: {
+  userId: string;
+  actorId: string;
+  actorName: string;
+  eventTitle: string;
+  startsAt: Date;
+}) {
+  if (userId === actorId) return;
+
+  const when = startsAt.toLocaleString("es-ES", { dateStyle: "long", timeStyle: "short" });
+  await prisma.ticket.create({
+    data: {
+      subject: `Nueva cita por confirmar: ${eventTitle}`,
+      body: `${actorName} te agendó "${eventTitle}" para el ${when}. Entra a tu Calendario para aceptarla o rechazarla.`,
+      senderId: actorId,
+      recipientId: userId,
+      status: "OPEN"
+    }
+  });
+}

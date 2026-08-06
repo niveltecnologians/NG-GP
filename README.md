@@ -17,6 +17,21 @@ Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, pue
 - **Bandeja de entrada**: se corrigió un error por el que el contador de "no leídos" del menú de arriba no bajaba al leer un requerimiento (quedaba pegado); ahora baja de inmediato.
 - **Tableros de proyecto configurables**: al crear un proyecto ahora eliges el **"Modo del tablero"**: "Tareas" (las columnas de siempre: Por hacer / En progreso / En revisión / Terminado) o "Administrativo" (Prospectos / Diseño / Presupuesto / Ejecución / Liquidación / Pos venta). El tablero Kanban, el menú de "Estado" de cada tarea y el informe del proyecto se ajustan solos según el modo elegido. El modo se define al crear el proyecto y no se puede cambiar después (para no dejar tareas con un estado que ya no existe en el tablero).
 
+## Calendario personal y citas (nuevo)
+
+Cada usuario tiene ahora un **Calendario** (nuevo enlace "Calendario" en el menú de arriba, con contador de citas pendientes por responder):
+
+- Cualquiera puede crear eventos en su propio calendario (quedan aceptados al instante).
+- **Los administradores** pueden elegir "Ver calendario de" cualquier persona del equipo (para ver su disponibilidad) y agendarle una cita desde ahí con "+ Nueva cita". Esa cita le queda **pendiente** a la otra persona: le llega un aviso a su bandeja de entrada y ve la cita en su Calendario con botones **Aceptar** / **Rechazar**.
+- Una cita pendiente que se acepta pasa a "Aceptada" automáticamente; no hace falta ningún paso extra para que quede agendada.
+- Cualquiera puede eliminar una cita propia; quien la creó (si fue un administrador agendándosela a otra persona) y cualquier administrador también pueden eliminarla.
+
+No hace falta ninguna acción manual además de subir esta versión: la tabla nueva (`CalendarEvent`) se crea sola en la base de datos la primera vez que Vercel construye el proyecto, igual que las actualizaciones anteriores.
+
+## Tareas: "Realizada" en vez de vencida (nuevo)
+
+Antes, una tarea marcada como terminada podía seguir mostrando la fecha límite en rojo como si estuviera vencida. Ahora, apenas una tarea llega a su columna final ("Terminado" en modo Tareas, o "Pos venta" en modo Administrativo), tanto en el tablero Kanban como en los informes se muestra **"✅ Realizada"** en vez de la fecha. También se agregó un aviso de **"Próxima a vencer"** (en ámbar) para tareas sin terminar cuya fecha límite es en los próximos 3 días, además del aviso de "Vencida" (en rojo) que ya existía para las que ya pasaron su fecha.
+
 ## Instalarla como app en el celular (iOS y Android)
 
 La app ahora es una **PWA** (Progressive Web App): se puede "instalar" desde el navegador del celular, queda con ícono en la pantalla de inicio y se abre a pantalla completa, sin la barra del navegador — se siente como una app normal. No requiere pasar por App Store ni Google Play, es gratis y funciona igual en iPhone y Android. Como con cualquier otra actualización: primero subes este código a tu repositorio de GitHub (reemplazando los archivos anteriores) y Vercel redespliega solo; recién ahí la app queda instalable en la URL de producción.

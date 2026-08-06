@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Task, PRIORITY_COLORS, PRIORITY_LABELS } from "@/lib/types";
+import { getDueState } from "@/lib/taskDates";
 
 export default function TaskCard({
   task,
@@ -14,10 +15,7 @@ export default function TaskCard({
 }) {
   const [avatarError, setAvatarError] = useState(false);
   const initials = task.assignee ? task.assignee.name.slice(0, 2).toUpperCase() : "—";
-  // "DONE" y "POSVENTA" son la última columna de cada modo de tablero
-  // (Tareas y Administrativo); una tarea ahí ya no cuenta como vencida.
-  const isFinalStatus = task.status === "DONE" || task.status === "POSVENTA";
-  const overdue = task.dueDate && new Date(task.dueDate) < new Date() && !isFinalStatus;
+  const dueState = getDueState(task.dueDate, task.status);
 
   return (
     <div
@@ -50,9 +48,20 @@ export default function TaskCard({
         {task.attachments.length > 0 && (
           <span className="text-[11px] text-slate-400">📎 {task.attachments.length}</span>
         )}
-        {task.dueDate && (
-          <span className={`text-[11px] ${overdue ? "font-medium text-red-600" : "text-slate-400"}`}>
-            {overdue ? "Vencida · " : ""}
+        {dueState === "done" && (
+          <span className="text-[11px] font-medium text-emerald-600">✅ Realizada</span>
+        )}
+        {dueState !== "done" && task.dueDate && (
+          <span
+            className={`text-[11px] ${
+              dueState === "overdue"
+                ? "font-medium text-red-600"
+                : dueState === "soon"
+                ? "font-medium text-amber-600"
+                : "text-slate-400"
+            }`}
+          >
+            {dueState === "overdue" ? "Vencida · " : dueState === "soon" ? "Próxima a vencer · " : ""}
             {new Date(task.dueDate).toLocaleDateString("es-ES")}
           </span>
         )}

@@ -21,11 +21,13 @@ export default function Navbar({
   const [logoError, setLogoError] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   const [chatUnread, setChatUnread] = useState(0);
+  const [calendarPending, setCalendarPending] = useState(0);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const prevInbox = useRef<number | null>(null);
   const prevChat = useRef<number | null>(null);
+  const prevCalendar = useRef<number | null>(null);
 
   // Cierra el menú de celular solo al cambiar de página.
   useEffect(() => {
@@ -59,6 +61,18 @@ export default function Navbar({
           }
           prevChat.current = data.count;
           setChatUnread(data.count);
+        })
+        .catch(() => {});
+
+      fetch("/api/calendar/pending-count")
+        .then((r) => r.json())
+        .then((data) => {
+          if (typeof data.count !== "number") return;
+          if (prevCalendar.current !== null && data.count > prevCalendar.current) {
+            notify("Calendario", "Tienes una cita nueva por aceptar o rechazar.");
+          }
+          prevCalendar.current = data.count;
+          setCalendarPending(data.count);
         })
         .catch(() => {});
     }
@@ -104,6 +118,7 @@ export default function Navbar({
     { href: "/dashboard", label: "Proyectos", badge: 0 },
     { href: "/inbox", label: "Bandeja de entrada", badge: inboxUnread },
     { href: "/chat", label: "Chat", badge: chatUnread },
+    { href: "/calendar", label: "Calendario", badge: calendarPending },
     { href: "/reports", label: "Informes", badge: 0 },
     ...(user.role === "ADMIN"
       ? [
@@ -122,7 +137,7 @@ export default function Navbar({
 
   const appInitials = appName.slice(0, 2).toUpperCase();
 
-  const totalBadge = inboxUnread + chatUnread;
+  const totalBadge = inboxUnread + chatUnread + calendarPending;
 
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/85 backdrop-blur">
