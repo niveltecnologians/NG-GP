@@ -348,9 +348,15 @@ model CalendarEvent {
 
   respondedAt DateTime?
 
+  // Cuando una cita se agenda para varias personas a la vez, cada una recibe
+  // su propia fila (para poder aceptar/rechazar por separado), pero todas
+  // comparten este groupId para poder editarlas juntas (mismo título/fecha).
+  groupId     String?
+
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   @@index([userId])
   @@index([startsAt])
+  @@index([groupId])
 }
