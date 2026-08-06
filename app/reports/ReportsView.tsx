@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TaskStatus, STATUS_LABELS, BOARD_MODE_COLUMNS, BoardMode } from "@/lib/types";
+import { isFinalStatus, getDueState } from "@/lib/taskDates";
 
 type TaskRow = {
   id: string;
@@ -25,10 +26,20 @@ type ProjectRow = {
 
 const PRIORITY_LABELS: Record<string, string> = { LOW: "Baja", MEDIUM: "Media", HIGH: "Alta", URGENT: "Urgente" };
 
-// "DONE" y "POSVENTA" son la última columna de cada modo de tablero
-// (Tareas y Administrativo): ahí una tarea ya no cuenta como pendiente/vencida.
-function isFinalStatus(status: TaskStatus) {
-  return status === "DONE" || status === "POSVENTA";
+function DueCell({ dueDate, status }: { dueDate: string | null; status: TaskStatus }) {
+  const state = getDueState(dueDate, status);
+  if (state === "done") return <td className="px-4 py-2.5 font-medium text-emerald-600">✅ Realizada</td>;
+  if (state === "none") return <td className="px-4 py-2.5">—</td>;
+  return (
+    <td
+      className={`px-4 py-2.5 ${
+        state === "overdue" ? "font-medium text-red-600" : state === "soon" ? "font-medium text-amber-600" : ""
+      }`}
+    >
+      {state === "overdue" ? "Vencida · " : state === "soon" ? "Próxima a vencer · " : ""}
+      {new Date(dueDate as string).toLocaleDateString("es-ES")}
+    </td>
+  );
 }
 
 function exportCsv(filename: string, headers: string[], rows: (string | number)[][]) {
@@ -104,7 +115,7 @@ function ProjectReport({
     counts[t.status]++;
   });
   const pct = total > 0 ? Math.round((counts[doneStatus] / total) * 100) : 0;
-  const overdueCount = tasks.filter((t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== doneStatus).length;
+  const overdueCount = tasks.filter((t) => getDueState(t.dueDate, t.status) === "overdue").length;
 
   function handleExport() {
     exportCsv(
@@ -184,20 +195,15 @@ function ProjectReport({
                 </td>
               </tr>
             ) : (
-              tasks.map((t) => {
-                const overdue = t.dueDate && new Date(t.dueDate) < new Date() && t.status !== doneStatus;
-                return (
-                  <tr key={t.id} className="border-b border-slate-100 text-sm">
-                    <td className="px-4 py-2.5">{t.title}</td>
-                    <td className="px-4 py-2.5">{STATUS_LABELS[t.status]}</td>
-                    <td className="px-4 py-2.5">{PRIORITY_LABELS[t.priority]}</td>
-                    <td className="px-4 py-2.5">{t.assignee ? t.assignee.name : "Sin asignar"}</td>
-                    <td className={`px-4 py-2.5 ${overdue ? "font-medium text-red-600" : ""}`}>
-                      {t.dueDate ? new Date(t.dueDate).toLocaleDateString("es-ES") : "—"}
-                    </td>
-                  </tr>
-                );
-              })
+              tasks.map((t) => (
+                <tr key={t.id} className="border-b border-slate-100 text-sm">
+                  <td className="px-4 py-2.5">{t.title}</td>
+                  <td className="px-4 py-2.5">{STATUS_LABELS[t.status]}</td>
+                  <td className="px-4 py-2.5">{PRIORITY_LABELS[t.priority]}</td>
+                  <td className="px-4 py-2.5">{t.assignee ? t.assignee.name : "Sin asignar"}</td>
+                  <DueCell dueDate={t.dueDate} status={t.status} />
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -243,9 +249,7 @@ function ProfessionalReport({
   const total = allTasks.length;
   const doneTotal = allTasks.filter((t) => isFinalStatus(t.status)).length;
   const pct = total > 0 ? Math.round((doneTotal / total) * 100) : 0;
-  const overdueCount = allTasks.filter(
-    (t) => t.dueDate && new Date(t.dueDate) < new Date() && !isFinalStatus(t.status)
-  ).length;
+  const overdueCount = allTasks.filter((t) => getDueState(t.dueDate, t.status) === "overdue").length;
   const activeProjects = perProject.filter(({ myTasks }) => myTasks.length > 0).length;
 
   function handleExport() {
@@ -342,20 +346,15 @@ function ProfessionalReport({
                 </td>
               </tr>
             ) : (
-              allTasks.map((t) => {
-                const overdue = t.dueDate && new Date(t.dueDate) < new Date() && !isFinalStatus(t.status);
-                return (
-                  <tr key={t.id} className="border-b border-slate-100 text-sm">
-                    <td className="px-4 py-2.5">{t.projectName}</td>
-                    <td className="px-4 py-2.5">{t.title}</td>
-                    <td className="px-4 py-2.5">{STATUS_LABELS[t.status]}</td>
-                    <td className="px-4 py-2.5">{PRIORITY_LABELS[t.priority]}</td>
-                    <td className={`px-4 py-2.5 ${overdue ? "font-medium text-red-600" : ""}`}>
-                      {t.dueDate ? new Date(t.dueDate).toLocaleDateString("es-ES") : "—"}
-                    </td>
-                  </tr>
-                );
-              })
+              allTasks.map((t) => (
+                <tr key={t.id} className="border-b border-slate-100 text-sm">
+                  <td className="px-4 py-2.5">{t.projectName}</td>
+                  <td className="px-4 py-2.5">{t.title}</td>
+                  <td className="px-4 py-2.5">{STATUS_LABELS[t.status]}</td>
+                  <td className="px-4 py-2.5">{PRIORITY_LABELS[t.priority]}</td>
+                  <DueCell dueDate={t.dueDate} status={t.status} />
+                </tr>
+              ))
             )}
           </tbody>
         </table>

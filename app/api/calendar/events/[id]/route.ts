@@ -1,0 +1,82 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
+
+const EVENT_SELECT = {
+  id: true,
+  title: true,
+  description: true,
+  startsAt: true,
+  endsAt: true,
+  status: true,
+  userId: true,
+  respondedAt: true,
+  createdAt: true,
+  createdBy: { select: { id: true, name: true } }
+} as const;
+
+function serialize<T extends { startsAt: Date; endsAt: Date | null; respondedAt: Date | null; createdAt: Date }>(e: T) {
+  return {
+    ...e,
+    startsAt: e.startsAt.toISOString(),
+    endsAt: e.endsAt ? e.endsAt.toISOString() : null,
+    respondedAt: e.respondedAt ? e.respondedAt.toISOString() : null,
+    createdAt: e.createdAt.toISOString()
+  };
+}
+
+// Acepta/rechaza una cita pendiente (solo el dueño del calendario), o edita
+// los datos del evento (dueño, quien lo creó, o cualquier administrador).
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const event = await prisma.calendarEvent.findUnique({ where: { id: params.id } });
+  if (!event) return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
+
+  const isOwner = event.userId === user.userId;
+  const isCreator = event.createdById === user.userId;
+  const canManage = isOwner || isCreator || user.role === "ADMIN";
+  if (!canManage) return NextResponse.json({ error: "No tienes permiso sobre este evento" }, { status: 403 });
+
+  const body = await req.json();
+  const data: Record<string, unknown> = {};
+
+  if (body.status !== undefined) {
+    if (!isOwner) {
+      return NextResponse.json({ error: "Solo el dueño del calendario puede aceptar o rechazar la cita" }, { status: 403 });
+    }
+    if (body.status !== "ACCEPTED" && body.status !== "DECLINED") {
+      return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
+    }
+    data.status = body.status;
+    data.respondedAt = new Date();
+  }
+
+  if (body.title !== undefined) data.title = body.title;
+  if (body.description !== undefined) data.description = body.description || null;
+  if (body.startsAt !== undefined) data.startsAt = new Date(body.startsAt);
+  if (body.endsAt !== undefined) data.endsAt = body.endsAt ? new Date(body.endsAt) : null;
+
+  const updated = await prisma.calendarEvent.update({
+    where: { id: params.id },
+    data,
+    select: EVENT_SELECT
+  });
+
+  return NextResponse.json(serialize(updated));
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+
+  const event = await prisma.calendarEvent.findUnique({ where: { id: params.id } });
+  if (!event) return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
+
+  const canManage = event.userId === user.userId || event.createdById === user.userId || user.role === "ADMIN";
+  if (!canManage) return NextResponse.json({ error: "No tienes permiso sobre este evento" }, { status: 403 });
+
+  await prisma.calendarEvent.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}
