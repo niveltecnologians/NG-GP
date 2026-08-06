@@ -19,12 +19,14 @@ Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, pue
 
 ## Calendario personal y citas (nuevo)
 
-Cada usuario tiene ahora un **Calendario** (nuevo enlace "Calendario" en el menú de arriba, con contador de citas pendientes por responder):
+Cada usuario tiene ahora un **Calendario** (nuevo enlace "Calendario" en el menú de arriba, con contador de citas pendientes por responder), con una **vista de mes tipo Google Calendar**: navegas entre meses con ‹ ›, un botón "Hoy", y cada día muestra sus citas como etiquetas de colores (ámbar = pendiente, azul = aceptada, roja tachada = rechazada). Al hacer clic en un día se abre el detalle a la derecha, con el listado completo de esa fecha y el botón "+ Agendar" para crear una cita justo ahí.
 
-- Cualquiera puede crear eventos en su propio calendario (quedan aceptados al instante).
-- **Los administradores** pueden elegir "Ver calendario de" cualquier persona del equipo (para ver su disponibilidad) y agendarle una cita desde ahí con "+ Nueva cita". Esa cita le queda **pendiente** a la otra persona: le llega un aviso a su bandeja de entrada y ve la cita en su Calendario con botones **Aceptar** / **Rechazar**.
+- **Cualquier persona del equipo puede agendarle una cita a cualquier otra** (no hace falta ser administrador): eliges "Ver calendario de" la persona, revisas su disponibilidad en el mes, y agendas con "+ Nueva cita" o "+ Agendar" en un día puntual.
+- Si la cita es para ti mismo, queda **aceptada** al instante. Si es para otra persona, le queda **pendiente**: le llega un aviso a su bandeja de entrada y la ve en su Calendario (arriba de todo, en la sección "Pendientes de responder", además de en el día correspondiente) con botones **Aceptar** / **Rechazar**.
 - Una cita pendiente que se acepta pasa a "Aceptada" automáticamente; no hace falta ningún paso extra para que quede agendada.
-- Cualquiera puede eliminar una cita propia; quien la creó (si fue un administrador agendándosela a otra persona) y cualquier administrador también pueden eliminarla.
+- Cualquiera puede eliminar una cita propia; quien la creó (si se la agendó a otra persona) y cualquier administrador también pueden eliminarla.
+
+Como cualquier persona puede ver el calendario de cualquier otra (para poder coordinarse y agendar), ten en cuenta que los títulos y descripciones de las citas no son privados dentro del equipo — si más adelante quieres restringir esto (por ejemplo, que solo los administradores puedan ver calendarios ajenos), avísame y lo ajusto.
 
 No hace falta ninguna acción manual además de subir esta versión: la tabla nueva (`CalendarEvent`) se crea sola en la base de datos la primera vez que Vercel construye el proyecto, igual que las actualizaciones anteriores.
 
