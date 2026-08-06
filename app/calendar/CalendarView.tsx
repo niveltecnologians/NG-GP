@@ -411,10 +411,10 @@ export default function CalendarView({
             setEvents((prev) => [...prev, ...newEvents.filter((ev) => ev.userId === viewingUserId)]);
             setShowForm(false);
           }}
-          onUpdated={(updated) => {
-            setEvents((prev) => (prev.some((ev) => ev.id === updated.id) ? prev.map((ev) => (ev.id === updated.id ? updated : ev)) : prev));
+          onUpdated={() => {
             setShowForm(false);
             setEditingEvent(null);
+            load();
           }}
         />
       )}
@@ -441,7 +441,7 @@ function EventFormModal({
   editingEvent: EventRow | null;
   onClose: () => void;
   onCreated: (events: EventRow[]) => void;
-  onUpdated: (event: EventRow) => void;
+  onUpdated: () => void;
 }) {
   const isEditing = Boolean(editingEvent);
   const [title, setTitle] = useState(editingEvent?.title || "");
@@ -455,11 +455,29 @@ function EventFormModal({
     editingEvent?.endsAt ? toLocalInputValue(new Date(editingEvent.endsAt)) : ""
   );
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([defaultUserId]);
+  const [alreadyInvitedIds, setAlreadyInvitedIds] = useState<string[]>(editingEvent ? [editingEvent.userId] : []);
+  const [addUserIds, setAddUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!editingEvent) return;
+    if (!editingEvent.groupId) return;
+    fetch(`/api/calendar/events?groupId=${editingEvent.groupId}`)
+      .then((r) => r.json())
+      .then((data: EventRow[]) => {
+        if (Array.isArray(data)) setAlreadyInvitedIds(data.map((e) => e.userId));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function toggleUser(id: string) {
     setSelectedUserIds((prev) => (prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]));
+  }
+
+  function toggleAddUser(id: string) {
+    setAddUserIds((prev) => (prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -478,14 +496,30 @@ function EventFormModal({
           endsAt: endsAt ? new Date(endsAt).toISOString() : null
         })
       });
-      setLoading(false);
       if (!res.ok) {
+        setLoading(false);
         const data = await res.json().catch(() => ({}));
         setError(data.error || "No se pudo editar la cita");
         return;
       }
-      const updated = await res.json();
-      onUpdated(updated);
+
+      if (addUserIds.length > 0) {
+        const inviteRes = await fetch(`/api/calendar/events/${editingEvent.id}/invite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userIds: addUserIds })
+        });
+        setLoading(false);
+        if (!inviteRes.ok) {
+          const data = await inviteRes.json().catch(() => ({}));
+          setError(data.error || "El título y la fecha se guardaron, pero no se pudo invitar a las personas nuevas");
+          return;
+        }
+      } else {
+        setLoading(false);
+      }
+
+      onUpdated();
       return;
     }
 
@@ -586,6 +620,31 @@ function EventFormModal({
                   </label>
                 ))}
             </div>
+          </div>
+        )}
+
+        {isEditing && (
+          <div>
+            <label className="mb-1 block text-sm font-medium">Agregar invitados</label>
+            {users.filter((u) => !alreadyInvitedIds.includes(u.id)).length === 0 ? (
+              <p className="text-xs text-slate-400">Ya está invitado todo el equipo.</p>
+            ) : (
+              <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+                {users
+                  .filter((u) => !alreadyInvitedIds.includes(u.id))
+                  .map((u) => (
+                    <label key={u.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-slate-50">
+                      <input type="checkbox" checked={addUserIds.includes(u.id)} onChange={() => toggleAddUser(u.id)} />
+                      {u.name}
+                    </label>
+                  ))}
+              </div>
+            )}
+            {addUserIds.length > 0 && (
+              <p className="mt-1 text-xs text-amber-700">
+                Les va a quedar pendiente de aceptar; les llega un aviso a su bandeja de entrada.
+              </p>
+            )}
           </div>
         )}
 

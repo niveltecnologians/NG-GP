@@ -30,28 +30,22 @@ function serialize<T extends { startsAt: Date; endsAt: Date | null; respondedAt:
 
 // Lista los eventos del calendario de un usuario. Por defecto, el propio;
 // cualquier persona del equipo puede pedir el de cualquier otra (para ver
-// su disponibilidad antes de agendarle algo).
+// su disponibilidad antes de agendarle algo). También se puede pedir por
+// groupId, para ver quién más está invitado a una cita compartida.
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
+  const groupId = req.nextUrl.searchParams.get("groupId");
   const requestedUserId = req.nextUrl.searchParams.get("userId") || user.userId;
 
   const events = await prisma.calendarEvent.findMany({
-    where: { userId: requestedUserId },
+    where: groupId ? { groupId } : { userId: requestedUserId },
     select: EVENT_SELECT,
     orderBy: { startsAt: "asc" }
   });
 
-  return NextResponse.json(
-    events.map((e) => ({
-      ...e,
-      startsAt: e.startsAt.toISOString(),
-      endsAt: e.endsAt ? e.endsAt.toISOString() : null,
-      respondedAt: e.respondedAt ? e.respondedAt.toISOString() : null,
-      createdAt: e.createdAt.toISOString()
-    }))
-  );
+  return NextResponse.json(events.map(serialize));
 }
 
 // Crea un evento, para una o varias personas a la vez. Cada persona recibe
