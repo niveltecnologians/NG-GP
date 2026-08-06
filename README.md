@@ -40,6 +40,8 @@ Al crear una cita ("+ Nueva cita" / "+ Agendar"), ahora aparece una lista de **i
 
 Para **editar** una cita ya creada (título, descripción, fecha u hora), hay dos formas: hacer **doble clic** sobre ella (en la etiqueta del día o en la tarjeta del panel de la derecha), o tocar el nuevo botón **"Editar"** junto a "Eliminar" (más cómodo en el celular, donde el doble clic no siempre es práctico). Solo puede editarla el dueño de esa cita, quien la creó, o un administrador. Si la cita se agendó para varias personas, el cambio de título/descripción/fecha se aplica para todas a la vez; el estado de aceptación de cada quien no se toca.
 
+Y ahora, **desde esa misma pantalla de editar**, hay una sección "Agregar invitados" con la lista de quienes todavía no están en la cita: los marcas y, al guardar, se suman como nuevos invitados (les llega pendiente de aceptar a su bandeja de entrada), sin tocar a los que ya estaban. Si la cita era para una sola persona y le agregas alguien, pasa a comportarse como una cita compartida.
+
 ## Tareas: "Realizada" en vez de vencida (nuevo)
 
 Antes, una tarea marcada como terminada podía seguir mostrando la fecha límite en rojo como si estuviera vencida. Ahora, apenas una tarea llega a su columna final ("Terminado" en modo Tareas, o "Pos venta" en modo Administrativo), tanto en el tablero Kanban como en los informes se muestra **"✅ Realizada"** en vez de la fecha. También se agregó un aviso de **"Próxima a vencer"** (en ámbar) para tareas sin terminar cuya fecha límite es en los próximos 3 días, además del aviso de "Vencida" (en rojo) que ya existía para las que ya pasaron su fecha.
