@@ -12,6 +12,7 @@ const EVENT_SELECT = {
   userId: true,
   respondedAt: true,
   createdAt: true,
+  groupId: true,
   createdBy: { select: { id: true, name: true } }
 } as const;
 
@@ -40,7 +41,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!canManage) return NextResponse.json({ error: "No tienes permiso sobre este evento" }, { status: 403 });
 
   const body = await req.json();
-  const data: Record<string, unknown> = {};
+
+  // Los datos de la cita (título, descripción, fecha) son compartidos: si la
+  // cita se agendó para varias personas a la vez, editarla actualiza la
+  // versión de todos los invitados. El estado (aceptar/rechazar) es siempre
+  // individual, solo afecta la fila del dueño de ese calendario.
+  const sharedData: Record<string, unknown> = {};
+  if (body.title !== undefined) sharedData.title = body.title;
+  if (body.description !== undefined) sharedData.description = body.description || null;
+  if (body.startsAt !== undefined) sharedData.startsAt = new Date(body.startsAt);
+  if (body.endsAt !== undefined) sharedData.endsAt = body.endsAt ? new Date(body.endsAt) : null;
+
+  if (Object.keys(sharedData).length > 0) {
+    if (event.groupId) {
+      await prisma.calendarEvent.updateMany({ where: { groupId: event.groupId }, data: sharedData });
+    } else {
+      await prisma.calendarEvent.update({ where: { id: params.id }, data: sharedData });
+    }
+  }
 
   if (body.status !== undefined) {
     if (!isOwner) {
@@ -49,20 +67,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (body.status !== "ACCEPTED" && body.status !== "DECLINED") {
       return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
     }
-    data.status = body.status;
-    data.respondedAt = new Date();
+    await prisma.calendarEvent.update({
+      where: { id: params.id },
+      data: { status: body.status, respondedAt: new Date() }
+    });
   }
 
-  if (body.title !== undefined) data.title = body.title;
-  if (body.description !== undefined) data.description = body.description || null;
-  if (body.startsAt !== undefined) data.startsAt = new Date(body.startsAt);
-  if (body.endsAt !== undefined) data.endsAt = body.endsAt ? new Date(body.endsAt) : null;
-
-  const updated = await prisma.calendarEvent.update({
-    where: { id: params.id },
-    data,
-    select: EVENT_SELECT
-  });
+  const updated = await prisma.calendarEvent.findUnique({ where: { id: params.id }, select: EVENT_SELECT });
+  if (!updated) return NextResponse.json({ error: "Evento no encontrado" }, { status: 404 });
 
   return NextResponse.json(serialize(updated));
 }

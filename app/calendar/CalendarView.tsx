@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getHolidayMap } from "@/lib/colombianHolidays";
 
 type UserOption = { id: string; name: string; email: string };
 
@@ -12,6 +13,7 @@ type EventRow = {
   endsAt: string | null;
   status: "PENDING" | "ACCEPTED" | "DECLINED";
   userId: string;
+  groupId: string | null;
   createdBy: { id: string; name: string } | null;
 };
 
@@ -64,6 +66,7 @@ export default function CalendarView({
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formDate, setFormDate] = useState<Date | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(() => new Date());
 
@@ -126,8 +129,23 @@ export default function CalendarView({
   const monthLabel = monthCursor.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
   const selectedEvents = eventsByDay.get(dateKey(selectedDate)) || [];
 
+  // Festivos de Colombia: se calculan para el año del mes que se ve, más el
+  // anterior y el siguiente (por si la grilla muestra días de diciembre o
+  // enero de otro año).
+  const holidayMap = useMemo(
+    () => getHolidayMap([monthCursor.getFullYear() - 1, monthCursor.getFullYear(), monthCursor.getFullYear() + 1]),
+    [monthCursor]
+  );
+  const selectedHoliday = holidayMap.get(dateKey(selectedDate));
+
   function openFormFor(date: Date) {
     setFormDate(date);
+    setEditingEvent(null);
+    setShowForm(true);
+  }
+
+  function openEditFor(event: EventRow) {
+    setEditingEvent(event);
     setShowForm(true);
   }
 
@@ -213,7 +231,9 @@ export default function CalendarView({
 
           <div className="grid grid-cols-7 gap-1 px-1 pb-1 text-center text-[11px] font-medium text-slate-400">
             {WEEKDAYS.map((w) => (
-              <div key={w}>{w}</div>
+              <div key={w} className={w === "Dom" ? "text-red-400" : undefined}>
+                {w}
+              </div>
             ))}
           </div>
 
@@ -227,10 +247,14 @@ export default function CalendarView({
                 const inMonth = d.getMonth() === monthCursor.getMonth();
                 const isToday = dateKey(d) === dateKey(today);
                 const isSelected = dateKey(d) === dateKey(selectedDate);
+                const holidayName = holidayMap.get(key);
+                const isSunday = d.getDay() === 0;
+                const isSpecial = Boolean(holidayName) || isSunday;
                 return (
                   <button
                     key={key}
                     onClick={() => setSelectedDate(d)}
+                    title={holidayName}
                     className={`flex min-h-[72px] flex-col items-start gap-0.5 rounded-lg border p-1.5 text-left transition sm:min-h-[92px] ${
                       isSelected
                         ? "border-brand-400 bg-brand-50"
@@ -241,23 +265,40 @@ export default function CalendarView({
                   >
                     <span
                       className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${
-                        isToday ? "bg-brand-600 font-semibold text-white" : inMonth ? "text-slate-700" : "text-slate-300"
+                        isToday
+                          ? "bg-brand-600 font-semibold text-white"
+                          : isSpecial && inMonth
+                          ? "font-semibold text-red-500"
+                          : inMonth
+                          ? "text-slate-700"
+                          : "text-slate-300"
                       }`}
                     >
                       {d.getDate()}
                     </span>
                     <div className="flex w-full flex-col gap-0.5">
-                      {dayEvents.slice(0, 2).map((e) => (
+                      {holidayName && (
+                        <span className="truncate rounded bg-red-100 px-1 py-0.5 text-[10px] text-red-600" title={holidayName}>
+                          {holidayName}
+                        </span>
+                      )}
+                      {dayEvents.slice(0, holidayName ? 1 : 2).map((e) => (
                         <span
                           key={e.id}
+                          onDoubleClick={(ev) => {
+                            ev.stopPropagation();
+                            openEditFor(e);
+                          }}
                           className={`truncate rounded px-1 py-0.5 text-[10px] ${CHIP_STYLES[e.status]}`}
-                          title={e.title}
+                          title={`${e.title} (doble clic para editar)`}
                         >
                           {e.title}
                         </span>
                       ))}
-                      {dayEvents.length > 2 && (
-                        <span className="text-[10px] text-slate-400">+{dayEvents.length - 2} más</span>
+                      {dayEvents.length > (holidayName ? 1 : 2) && (
+                        <span className="text-[10px] text-slate-400">
+                          +{dayEvents.length - (holidayName ? 1 : 2)} más
+                        </span>
                       )}
                     </div>
                   </button>
@@ -277,6 +318,12 @@ export default function CalendarView({
             </button>
           </div>
 
+          {selectedHoliday && (
+            <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              🎉 Festivo: {selectedHoliday}
+            </p>
+          )}
+
           {selectedEvents.length === 0 ? (
             <p className="text-sm text-slate-400">No hay citas este día.</p>
           ) : (
@@ -285,7 +332,12 @@ export default function CalendarView({
                 const canRespond = viewingSelf && e.status === "PENDING";
                 const canManage = viewingSelf || e.createdBy?.id === currentUserId;
                 return (
-                  <div key={e.id} className="rounded-lg border border-slate-100 p-3">
+                  <div
+                    key={e.id}
+                    onDoubleClick={() => canManage && openEditFor(e)}
+                    title={canManage ? "Doble clic para editar" : undefined}
+                    className={`rounded-lg border border-slate-100 p-3 ${canManage ? "cursor-pointer" : ""}`}
+                  >
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-slate-900">{e.title}</p>
                       <span className={`badge ${STATUS_STYLES[e.status]}`}>{STATUS_LABELS[e.status]}</span>
@@ -313,9 +365,26 @@ export default function CalendarView({
                         </>
                       )}
                       {canManage && (
-                        <button onClick={() => handleDelete(e.id)} className="text-xs text-red-600 hover:underline">
-                          Eliminar
-                        </button>
+                        <>
+                          <button
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              openEditFor(e);
+                            }}
+                            className="text-xs text-brand-600 hover:underline"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              handleDelete(e.id);
+                            }}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -327,15 +396,25 @@ export default function CalendarView({
       </div>
 
       {showForm && (
-        <NewEventForm
-          targetUserId={viewingUserId}
-          targetUserName={viewingName}
-          isSelf={viewingSelf}
+        <EventFormModal
+          users={users}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          defaultUserId={viewingUserId}
           initialDate={formDate || selectedDate}
-          onClose={() => setShowForm(false)}
-          onCreated={(event) => {
-            setEvents((prev) => [...prev, event]);
+          editingEvent={editingEvent}
+          onClose={() => {
             setShowForm(false);
+            setEditingEvent(null);
+          }}
+          onCreated={(newEvents) => {
+            setEvents((prev) => [...prev, ...newEvents.filter((ev) => ev.userId === viewingUserId)]);
+            setShowForm(false);
+          }}
+          onUpdated={(updated) => {
+            setEvents((prev) => (prev.some((ev) => ev.id === updated.id) ? prev.map((ev) => (ev.id === updated.id ? updated : ev)) : prev));
+            setShowForm(false);
+            setEditingEvent(null);
           }}
         />
       )}
@@ -343,41 +422,84 @@ export default function CalendarView({
   );
 }
 
-function NewEventForm({
-  targetUserId,
-  targetUserName,
-  isSelf,
+function EventFormModal({
+  users,
+  currentUserId,
+  currentUserName,
+  defaultUserId,
   initialDate,
+  editingEvent,
   onClose,
-  onCreated
+  onCreated,
+  onUpdated
 }: {
-  targetUserId: string;
-  targetUserName: string;
-  isSelf: boolean;
+  users: UserOption[];
+  currentUserId: string;
+  currentUserName: string;
+  defaultUserId: string;
   initialDate: Date;
+  editingEvent: EventRow | null;
   onClose: () => void;
-  onCreated: (event: EventRow) => void;
+  onCreated: (events: EventRow[]) => void;
+  onUpdated: (event: EventRow) => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const isEditing = Boolean(editingEvent);
+  const [title, setTitle] = useState(editingEvent?.title || "");
+  const [description, setDescription] = useState(editingEvent?.description || "");
   const [startsAt, setStartsAt] = useState(() => {
-    const d = new Date(initialDate);
-    d.setHours(Math.max(d.getHours(), 9), 0, 0, 0);
+    const d = editingEvent ? new Date(editingEvent.startsAt) : new Date(initialDate);
+    if (!editingEvent) d.setHours(Math.max(d.getHours(), 9), 0, 0, 0);
     return toLocalInputValue(d);
   });
-  const [endsAt, setEndsAt] = useState("");
+  const [endsAt, setEndsAt] = useState(() =>
+    editingEvent?.endsAt ? toLocalInputValue(new Date(editingEvent.endsAt)) : ""
+  );
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([defaultUserId]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function toggleUser(id: string) {
+    setSelectedUserIds((prev) => (prev.includes(id) ? prev.filter((u) => u !== id) : [...prev, id]));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (isEditing && editingEvent) {
+      const res = await fetch(`/api/calendar/events/${editingEvent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          description,
+          startsAt: new Date(startsAt).toISOString(),
+          endsAt: endsAt ? new Date(endsAt).toISOString() : null
+        })
+      });
+      setLoading(false);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "No se pudo editar la cita");
+        return;
+      }
+      const updated = await res.json();
+      onUpdated(updated);
+      return;
+    }
+
+    if (selectedUserIds.length === 0) {
+      setLoading(false);
+      setError("Selecciona al menos un invitado");
+      return;
+    }
+
     const res = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userId: targetUserId,
+        userIds: selectedUserIds,
         title,
         description,
         startsAt: new Date(startsAt).toISOString(),
@@ -394,6 +516,8 @@ function NewEventForm({
     onCreated(created);
   }
 
+  const invitesSomeoneElse = !isEditing && selectedUserIds.some((id) => id !== currentUserId);
+
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <form
@@ -401,10 +525,15 @@ function NewEventForm({
         onSubmit={handleSubmit}
         className="card w-full max-w-md space-y-4 p-6"
       >
-        <h2 className="text-lg font-semibold">{isSelf ? "Nueva cita" : `Agendar cita para ${targetUserName}`}</h2>
-        {!isSelf && (
+        <h2 className="text-lg font-semibold">{isEditing ? "Editar cita" : "Nueva cita"}</h2>
+        {invitesSomeoneElse && (
           <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Le va a quedar pendiente de aceptar; le llega un aviso a su bandeja de entrada.
+            A quienes no seas tú les va a quedar pendiente de aceptar; les llega un aviso a su bandeja de entrada.
+          </p>
+        )}
+        {isEditing && editingEvent?.groupId && (
+          <p className="rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            Esta cita se agendó para varias personas; el título, la descripción y la fecha se actualizan para todas.
           </p>
         )}
         {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
@@ -436,12 +565,36 @@ function NewEventForm({
           </div>
         </div>
 
+        {!isEditing && (
+          <div>
+            <label className="mb-1 block text-sm font-medium">Invitados</label>
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+              <label className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={selectedUserIds.includes(currentUserId)}
+                  onChange={() => toggleUser(currentUserId)}
+                />
+                Yo ({currentUserName})
+              </label>
+              {users
+                .filter((u) => u.id !== currentUserId)
+                .map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-slate-50">
+                    <input type="checkbox" checked={selectedUserIds.includes(u.id)} onChange={() => toggleUser(u.id)} />
+                    {u.name}
+                  </label>
+                ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancelar
           </button>
           <button type="submit" disabled={loading} className="btn">
-            {loading ? "Guardando..." : "Agendar"}
+            {loading ? "Guardando..." : isEditing ? "Guardar cambios" : "Agendar"}
           </button>
         </div>
       </form>

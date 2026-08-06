@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
@@ -13,8 +14,19 @@ const EVENT_SELECT = {
   userId: true,
   respondedAt: true,
   createdAt: true,
+  groupId: true,
   createdBy: { select: { id: true, name: true } }
 } as const;
+
+function serialize<T extends { startsAt: Date; endsAt: Date | null; respondedAt: Date | null; createdAt: Date }>(e: T) {
+  return {
+    ...e,
+    startsAt: e.startsAt.toISOString(),
+    endsAt: e.endsAt ? e.endsAt.toISOString() : null,
+    respondedAt: e.respondedAt ? e.respondedAt.toISOString() : null,
+    createdAt: e.createdAt.toISOString()
+  };
+}
 
 // Lista los eventos del calendario de un usuario. Por defecto, el propio;
 // cualquier persona del equipo puede pedir el de cualquier otra (para ver
@@ -42,56 +54,68 @@ export async function GET(req: NextRequest) {
   );
 }
 
-// Crea un evento. Si es para uno mismo, queda aceptado al instante. Si se
-// agenda para otra persona (cualquier usuario puede hacerlo, no solo
-// administradores), queda pendiente y esa persona recibe un aviso en su
-// bandeja de entrada para aceptarlo o rechazarlo.
+// Crea un evento, para una o varias personas a la vez. Cada persona recibe
+// su propia fila (para poder aceptar/rechazar por separado); si son varias,
+// comparten un groupId para poder editarlas juntas después. Para uno mismo
+// queda aceptada al instante; para cualquier otra persona (no hace falta
+// ser administrador) queda pendiente y le llega un aviso a su bandeja de
+// entrada para aceptarla o rechazarla.
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { userId, title, description, startsAt, endsAt } = await req.json();
+  const body = await req.json();
+  const { title, description, startsAt, endsAt } = body;
   if (!title || !startsAt) {
     return NextResponse.json({ error: "El título y la fecha son obligatorios" }, { status: 400 });
   }
 
-  const targetUserId = userId || user.userId;
-  const isSelf = targetUserId === user.userId;
-
-  const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-  if (!targetUser) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
-
-  const event = await prisma.calendarEvent.create({
-    data: {
-      title,
-      description: description || null,
-      startsAt: new Date(startsAt),
-      endsAt: endsAt ? new Date(endsAt) : null,
-      status: isSelf ? "ACCEPTED" : "PENDING",
-      userId: targetUserId,
-      createdById: user.userId
-    },
-    select: EVENT_SELECT
-  });
-
-  if (!isSelf) {
-    await notifyCalendarInvite({
-      userId: targetUserId,
-      actorId: user.userId,
-      actorName: user.name,
-      eventTitle: title,
-      startsAt: event.startsAt
-    });
+  const rawIds: string[] =
+    Array.isArray(body.userIds) && body.userIds.length > 0 ? body.userIds : [body.userId || user.userId];
+  const targetUserIds = Array.from(new Set(rawIds.filter(Boolean)));
+  if (targetUserIds.length === 0) {
+    return NextResponse.json({ error: "Selecciona al menos un invitado" }, { status: 400 });
   }
 
-  return NextResponse.json(
-    {
-      ...event,
-      startsAt: event.startsAt.toISOString(),
-      endsAt: event.endsAt ? event.endsAt.toISOString() : null,
-      respondedAt: event.respondedAt ? event.respondedAt.toISOString() : null,
-      createdAt: event.createdAt.toISOString()
-    },
-    { status: 201 }
+  const targetUsers = await prisma.user.findMany({ where: { id: { in: targetUserIds } } });
+  if (targetUsers.length !== targetUserIds.length) {
+    return NextResponse.json({ error: "Alguno de los usuarios seleccionados no existe" }, { status: 404 });
+  }
+
+  const groupId = targetUserIds.length > 1 ? randomUUID() : null;
+
+  const created = await Promise.all(
+    targetUserIds.map((targetUserId) => {
+      const isSelf = targetUserId === user.userId;
+      return prisma.calendarEvent.create({
+        data: {
+          title,
+          description: description || null,
+          startsAt: new Date(startsAt),
+          endsAt: endsAt ? new Date(endsAt) : null,
+          status: isSelf ? "ACCEPTED" : "PENDING",
+          userId: targetUserId,
+          createdById: user.userId,
+          groupId
+        },
+        select: EVENT_SELECT
+      });
+    })
   );
+
+  await Promise.all(
+    created
+      .filter((e) => e.userId !== user.userId)
+      .map((e) =>
+        notifyCalendarInvite({
+          userId: e.userId,
+          actorId: user.userId,
+          actorName: user.name,
+          eventTitle: title,
+          startsAt: e.startsAt
+        })
+      )
+  );
+
+  return NextResponse.json(created.map(serialize), { status: 201 });
 }
