@@ -202,6 +202,7 @@ model Task {
   attachments Attachment[]
   comments    TaskComment[]
   subtasks    SubTask[]
+  checklist   ChecklistItem[]
 
   // Dependencias para el diagrama de Gantt / ruta crítica: de qué otras
   // tareas depende esta (no puede empezar hasta que terminen), y qué otras
@@ -249,8 +250,9 @@ model TaskComment {
   @@index([taskId])
 }
 
-// Subtareas: un checklist simple dentro de la tarea. Al marcar la última
-// pendiente, la tarea completa pasa sola a su estado final.
+// Subtareas: pasos dentro de la tarea. Al marcar la última pendiente, la
+// tarea completa pasa sola a su estado final. Son distintas de la "Lista de
+// chequeo" (ChecklistItem, abajo), que es aparte y solo informativa.
 model SubTask {
   id        String   @id @default(cuid())
   title     String
@@ -260,10 +262,46 @@ model SubTask {
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
+  // Cada subtarea puede tener, además, su propia mini lista de chequeo
+  // interna (solo informativa: no completa la subtarea ni la tarea sola).
+  checklist SubtaskChecklistItem[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([taskId])
+}
+
+// Lista de chequeo de la tarea, independiente de las subtareas: es solo
+// informativa (marcar sus ítems no cambia el estado de la tarea).
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  text      String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+// Lista de chequeo dentro de una subtarea puntual (para desglosarla en
+// pasos chiquitos). También es solo informativa.
+model SubtaskChecklistItem {
+  id        String   @id @default(cuid())
+  text      String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+
+  subtaskId String
+  subtask   SubTask  @relation(fields: [subtaskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([subtaskId])
 }
 
 model Attachment {

@@ -9,12 +9,24 @@ export type Attachment = {
   uploadedBy: { id: string; name: string } | null;
 };
 
+// Ítem de una lista de chequeo (usado tanto para la lista de chequeo de la
+// tarea como para la lista de chequeo interna de una subtarea). Siempre es
+// solo informativo: marcarlo no completa nada más solo.
+export type ChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  order: number;
+  createdAt: string;
+};
+
 export type SubTask = {
   id: string;
   title: string;
   done: boolean;
   order: number;
   createdAt: string;
+  checklist: ChecklistItem[];
 };
 
 export type TaskComment = {
@@ -71,6 +83,7 @@ export type Task = {
   createdBy: UserLite | null;
   attachments: Attachment[];
   subtasks: SubTask[];
+  checklist: ChecklistItem[];
   area: TaskArea | null;
   phase: TaskPhase | null;
   budget: number | null;

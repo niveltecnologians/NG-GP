@@ -11,6 +11,7 @@ import {
   TaskArea,
   TaskPhase,
   SubTask,
+  ChecklistItem,
   TaskComment,
   STATUS_LABELS,
   PRIORITY_LABELS,
@@ -57,6 +58,17 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
   const [subtasks, setSubtasks] = useState<SubTask[]>(task?.subtasks || []);
   const [newSubtask, setNewSubtask] = useState("");
   const [subtaskLoading, setSubtaskLoading] = useState(false);
+
+  // Pasos internos de cada subtarea (mini lista de chequeo dentro de ella).
+  const [expandedSubtasks, setExpandedSubtasks] = useState<Set<string>>(new Set());
+  const [newSubtaskChecklistText, setNewSubtaskChecklistText] = useState<Record<string, string>>({});
+  const [subtaskChecklistLoading, setSubtaskChecklistLoading] = useState<Record<string, boolean>>({});
+
+  // Lista de chequeo de la tarea: independiente de las subtareas, solo
+  // informativa (no completa la tarea sola).
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(task?.checklist || []);
+  const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [checklistLoading, setChecklistLoading] = useState(false);
 
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -135,6 +147,126 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
         const updated = prev.filter((s) => s.id !== subtaskId);
         setCurrent((c) => (c ? { ...c, subtasks: updated } : c));
         return updated;
+      });
+    }
+  }
+
+  function toggleExpandedSubtask(subtaskId: string) {
+    setExpandedSubtasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(subtaskId)) next.delete(subtaskId);
+      else next.add(subtaskId);
+      return next;
+    });
+  }
+
+  async function handleAddSubtaskChecklistItem(subtaskId: string) {
+    if (!current) return;
+    const text = (newSubtaskChecklistText[subtaskId] || "").trim();
+    if (!text) return;
+    setSubtaskChecklistLoading((prev) => ({ ...prev, [subtaskId]: true }));
+    const res = await fetch(`/api/tasks/${current.id}/subtasks/${subtaskId}/checklist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    setSubtaskChecklistLoading((prev) => ({ ...prev, [subtaskId]: false }));
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo agregar el paso");
+      return;
+    }
+    const created = await res.json();
+    setNewSubtaskChecklistText((prev) => ({ ...prev, [subtaskId]: "" }));
+    setSubtasks((prev) => {
+      const updated = prev.map((s) => (s.id === subtaskId ? { ...s, checklist: [...s.checklist, created] } : s));
+      setCurrent((c) => (c ? { ...c, subtasks: updated } : c));
+      return updated;
+    });
+  }
+
+  async function handleToggleSubtaskChecklistItem(subtaskId: string, item: ChecklistItem) {
+    if (!current) return;
+    const res = await fetch(`/api/tasks/${current.id}/subtasks/${subtaskId}/checklist/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !item.done })
+    });
+    if (!res.ok) return;
+    const updated = await res.json();
+    setSubtasks((prev) => {
+      const next = prev.map((s) =>
+        s.id === subtaskId ? { ...s, checklist: s.checklist.map((i) => (i.id === updated.id ? updated : i)) } : s
+      );
+      setCurrent((c) => (c ? { ...c, subtasks: next } : c));
+      return next;
+    });
+  }
+
+  async function handleDeleteSubtaskChecklistItem(subtaskId: string, itemId: string) {
+    if (!current) return;
+    const res = await fetch(`/api/tasks/${current.id}/subtasks/${subtaskId}/checklist/${itemId}`, {
+      method: "DELETE"
+    });
+    if (res.ok) {
+      setSubtasks((prev) => {
+        const next = prev.map((s) =>
+          s.id === subtaskId ? { ...s, checklist: s.checklist.filter((i) => i.id !== itemId) } : s
+        );
+        setCurrent((c) => (c ? { ...c, subtasks: next } : c));
+        return next;
+      });
+    }
+  }
+
+  async function handleAddChecklistItem(e: React.FormEvent) {
+    e.preventDefault();
+    if (!current || !newChecklistItem.trim()) return;
+    setChecklistLoading(true);
+    const res = await fetch(`/api/tasks/${current.id}/checklist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: newChecklistItem.trim() })
+    });
+    setChecklistLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo agregar el ítem");
+      return;
+    }
+    const created = await res.json();
+    setNewChecklistItem("");
+    setChecklist((prev) => {
+      const updated = [...prev, created];
+      setCurrent((c) => (c ? { ...c, checklist: updated } : c));
+      return updated;
+    });
+  }
+
+  async function handleToggleChecklistItem(item: ChecklistItem) {
+    if (!current) return;
+    const res = await fetch(`/api/tasks/${current.id}/checklist/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !item.done })
+    });
+    if (!res.ok) return;
+    const updated = await res.json();
+    setChecklist((prev) => {
+      const next = prev.map((i) => (i.id === updated.id ? updated : i));
+      setCurrent((c) => (c ? { ...c, checklist: next } : c));
+      return next;
+    });
+  }
+
+  async function handleDeleteChecklistItem(itemId: string) {
+    if (!current) return;
+    const res = await fetch(`/api/tasks/${current.id}/checklist/${itemId}`, { method: "DELETE" });
+    if (res.ok) {
+      setChecklist((prev) => {
+        const next = prev.filter((i) => i.id !== itemId);
+        setCurrent((c) => (c ? { ...c, checklist: next } : c));
+        return next;
       });
     }
   }
@@ -377,7 +509,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
 
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Subtareas (lista de chequeo)
+            Subtareas
             {subtasks.length > 0 && (
               <span className="ml-1 font-normal text-slate-400">
                 ({subtasks.filter((s) => s.done).length}/{subtasks.length})
@@ -389,16 +521,78 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
             <div className="space-y-2">
               <ul className="space-y-1">
                 {subtasks.map((s) => (
-                  <li key={s.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1 text-sm">
-                    <input type="checkbox" checked={s.done} onChange={() => handleToggleSubtask(s)} />
-                    <span className={`flex-1 ${s.done ? "text-slate-400 line-through" : ""}`}>{s.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSubtask(s.id)}
-                      className="shrink-0 text-xs text-red-600 hover:underline"
-                    >
-                      Eliminar
-                    </button>
+                  <li key={s.id} className="rounded-md border border-slate-200 px-2 py-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={s.done} onChange={() => handleToggleSubtask(s)} />
+                      <span className={`flex-1 ${s.done ? "text-slate-400 line-through" : ""}`}>{s.title}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandedSubtask(s.id)}
+                        className="shrink-0 text-xs text-slate-500 hover:underline"
+                      >
+                        {expandedSubtasks.has(s.id)
+                          ? "Ocultar pasos"
+                          : `Pasos${
+                              s.checklist.length > 0
+                                ? ` (${s.checklist.filter((i) => i.done).length}/${s.checklist.length})`
+                                : ""
+                            }`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubtask(s.id)}
+                        className="shrink-0 text-xs text-red-600 hover:underline"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                    {expandedSubtasks.has(s.id) && (
+                      <div className="mt-2 space-y-1.5 border-t border-slate-100 pl-6 pt-2">
+                        <ul className="space-y-1">
+                          {s.checklist.map((i) => (
+                            <li key={i.id} className="flex items-center gap-2 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={i.done}
+                                onChange={() => handleToggleSubtaskChecklistItem(s.id, i)}
+                              />
+                              <span className={`flex-1 ${i.done ? "text-slate-400 line-through" : ""}`}>{i.text}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSubtaskChecklistItem(s.id, i.id)}
+                                className="shrink-0 text-red-600 hover:underline"
+                              >
+                                Eliminar
+                              </button>
+                            </li>
+                          ))}
+                          {s.checklist.length === 0 && <li className="text-xs text-slate-400">Sin pasos aún</li>}
+                        </ul>
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleAddSubtaskChecklistItem(s.id);
+                          }}
+                          className="flex gap-2"
+                        >
+                          <input
+                            className="input flex-1 text-xs"
+                            placeholder="Nuevo paso"
+                            value={newSubtaskChecklistText[s.id] || ""}
+                            onChange={(e) =>
+                              setNewSubtaskChecklistText((prev) => ({ ...prev, [s.id]: e.target.value }))
+                            }
+                          />
+                          <button
+                            type="submit"
+                            disabled={subtaskChecklistLoading[s.id] || !(newSubtaskChecklistText[s.id] || "").trim()}
+                            className="btn-secondary shrink-0 text-xs"
+                          >
+                            Agregar
+                          </button>
+                        </form>
+                      </div>
+                    )}
                   </li>
                 ))}
                 {subtasks.length === 0 && <li className="text-xs text-slate-400">Sin subtareas aún</li>}
@@ -415,8 +609,63 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                 </button>
               </form>
               {subtasks.length > 0 && (
-                <p className="text-xs text-slate-400">Al tildar todas, la tarea pasa sola a su estado final.</p>
+                <p className="text-xs text-slate-400">
+                  Al tildar todas, la tarea pasa sola a su estado final. "Pasos" es una mini lista de chequeo dentro
+                  de cada subtarea.
+                </p>
               )}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Lista de chequeo
+            {checklist.length > 0 && (
+              <span className="ml-1 font-normal text-slate-400">
+                ({checklist.filter((i) => i.done).length}/{checklist.length})
+              </span>
+            )}
+          </label>
+          {!current && (
+            <p className="text-xs text-slate-400">Guarda la tarea primero para poder agregar la lista de chequeo.</p>
+          )}
+          {current && (
+            <div className="space-y-2">
+              <ul className="space-y-1">
+                {checklist.map((i) => (
+                  <li key={i.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1 text-sm">
+                    <input type="checkbox" checked={i.done} onChange={() => handleToggleChecklistItem(i)} />
+                    <span className={`flex-1 ${i.done ? "text-slate-400 line-through" : ""}`}>{i.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteChecklistItem(i.id)}
+                      className="shrink-0 text-xs text-red-600 hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </li>
+                ))}
+                {checklist.length === 0 && <li className="text-xs text-slate-400">Sin ítems aún</li>}
+              </ul>
+              <form onSubmit={handleAddChecklistItem} className="flex gap-2">
+                <input
+                  className="input flex-1"
+                  placeholder="Nuevo ítem"
+                  value={newChecklistItem}
+                  onChange={(e) => setNewChecklistItem(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={checklistLoading || !newChecklistItem.trim()}
+                  className="btn-secondary shrink-0 text-sm"
+                >
+                  Agregar
+                </button>
+              </form>
+              <p className="text-xs text-slate-400">
+                Es independiente de las subtareas: marcar estos ítems no cambia el estado de la tarea.
+              </p>
             </div>
           )}
         </div>

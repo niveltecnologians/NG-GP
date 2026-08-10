@@ -11,9 +11,27 @@ export const ATTACHMENT_LIST_SELECT = {
   uploadedBy: { select: { id: true, name: true } }
 } as const;
 
+export const SUBTASK_CHECKLIST_ITEM_SELECT = {
+  id: true,
+  text: true,
+  done: true,
+  order: true,
+  createdAt: true
+} as const;
+
 export const SUBTASK_LIST_SELECT = {
   id: true,
   title: true,
+  done: true,
+  order: true,
+  createdAt: true,
+  checklist: { select: SUBTASK_CHECKLIST_ITEM_SELECT, orderBy: { order: "asc" as const } }
+} as const;
+
+// Lista de chequeo de la tarea, independiente de las subtareas.
+export const CHECKLIST_ITEM_SELECT = {
+  id: true,
+  text: true,
   done: true,
   order: true,
   createdAt: true
@@ -37,5 +55,6 @@ export const TASK_FULL_INCLUDE = {
   createdBy: { select: { id: true, name: true, email: true } },
   attachments: { select: ATTACHMENT_LIST_SELECT },
   subtasks: { select: SUBTASK_LIST_SELECT, orderBy: { order: "asc" as const } },
+  checklist: { select: CHECKLIST_ITEM_SELECT, orderBy: { order: "asc" as const } },
   dependsOn: { select: { dependsOn: { select: { id: true, title: true } } } }
 } as const;
