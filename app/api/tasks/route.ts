@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
+import { TASK_FULL_INCLUDE } from "@/lib/selects";
 import { notifyTaskAssignment } from "@/lib/notify";
+import { computeAutoPriority } from "@/lib/autoPriority";
+import type { TaskStatus } from "@/lib/types";
+
+function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
+  return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
+}
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { title, description, projectId, assigneeId, priority, dueDate, status } = await req.json();
+  const { title, description, projectId, assigneeId, priority, startDate, dueDate, status, area, phase, budget, dependsOnIds } =
+    await req.json();
   if (!title || !projectId) {
     return NextResponse.json({ error: "Título y proyecto son obligatorios" }, { status: 400 });
   }
@@ -20,7 +27,23 @@ export async function POST(req: NextRequest) {
 
   // Si no viene un estado inicial, se usa la primera columna según el modo
   // de tablero del proyecto (Por hacer / Prospectos).
-  const initialStatus = status || (project.boardMode === "ADMIN" ? "PROSPECTOS" : "TODO");
+  const initialStatus: TaskStatus = status || (project.boardMode === "ADMIN" ? "PROSPECTOS" : "TODO");
+
+  // La prioridad se calcula sola según cuánto falta para la fecha límite;
+  // si no hay fecha, se respeta la que se haya elegido a mano (o Media).
+  const parsedDueDate = dueDate ? new Date(dueDate) : null;
+  const autoPriority = computeAutoPriority(parsedDueDate, initialStatus);
+
+  // Las dependencias solo pueden apuntar a tareas que ya existen en el
+  // mismo proyecto (se ignora cualquier id que no cumpla eso).
+  let validDependsOnIds: string[] = [];
+  if (Array.isArray(dependsOnIds) && dependsOnIds.length > 0) {
+    const candidates = await prisma.task.findMany({
+      where: { id: { in: dependsOnIds }, projectId },
+      select: { id: true }
+    });
+    validDependsOnIds = candidates.map((c) => c.id);
+  }
 
   const task = await prisma.task.create({
     data: {
@@ -28,16 +51,19 @@ export async function POST(req: NextRequest) {
       description,
       projectId,
       assigneeId: assigneeId || null,
-      priority: priority || "MEDIUM",
-      dueDate: dueDate ? new Date(dueDate) : null,
+      priority: autoPriority || priority || "MEDIUM",
+      area: area || null,
+      phase: phase || null,
+      budget: budget === "" || budget === null || budget === undefined ? null : Number(budget),
+      startDate: startDate ? new Date(startDate) : null,
+      dueDate: parsedDueDate,
       createdById: user.userId,
-      status: initialStatus
+      status: initialStatus,
+      dependsOn: {
+        create: validDependsOnIds.map((depId) => ({ dependsOnId: depId }))
+      }
     },
-    include: {
-      assignee: { select: { id: true, name: true, email: true } },
-      createdBy: { select: { id: true, name: true, email: true } },
-      attachments: { select: ATTACHMENT_LIST_SELECT }
-    }
+    include: TASK_FULL_INCLUDE
   });
 
   if (task.assigneeId) {
@@ -50,5 +76,5 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(task, { status: 201 });
+  return NextResponse.json(serializeTask(task), { status: 201 });
 }

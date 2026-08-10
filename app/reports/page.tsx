@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { recalculateTaskPriorities } from "@/lib/autoPriority";
 import ReportsView from "./ReportsView";
 
 export default async function ReportsPage() {
   const user = await requireUser();
+
+  await recalculateTaskPriorities({
+    project: { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] }
+  });
 
   const projects = await prisma.project.findMany({
     where: { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] },

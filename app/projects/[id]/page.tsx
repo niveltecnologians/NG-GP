@@ -1,14 +1,20 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import KanbanBoard from "@/components/KanbanBoard";
+import ProjectTabs from "./ProjectTabs";
 import AddMemberForm from "./AddMemberForm";
 import EditProjectForm from "./EditProjectForm";
 import ProjectMembersList from "./ProjectMembersList";
-import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
+import { TASK_FULL_INCLUDE } from "@/lib/selects";
+import { recalculateTaskPriorities } from "@/lib/autoPriority";
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
+
+  // Antes de mostrar el tablero, se pone al día la prioridad automática de
+  // las tareas de este proyecto (por si cambió cuánto falta para la fecha
+  // límite desde la última vez que alguien lo vio).
+  await recalculateTaskPriorities({ projectId: params.id });
 
   const project = await prisma.project.findUnique({
     where: { id: params.id },
@@ -16,11 +22,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       owner: { select: { id: true, name: true, email: true } },
       members: { include: { user: { select: { id: true, name: true, email: true } } } },
       tasks: {
-        include: {
-          assignee: { select: { id: true, name: true, email: true } },
-          createdBy: { select: { id: true, name: true, email: true } },
-          attachments: { select: ATTACHMENT_LIST_SELECT }
-        },
+        include: TASK_FULL_INCLUDE,
         orderBy: { createdAt: "asc" }
       }
     }
@@ -39,8 +41,11 @@ export default async function ProjectPage({ params }: { params: { id: string } }
     ...project,
     tasks: project.tasks.map((t) => ({
       ...t,
+      startDate: t.startDate ? t.startDate.toISOString() : null,
       dueDate: t.dueDate ? t.dueDate.toISOString() : null,
-      attachments: t.attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() }))
+      attachments: t.attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
+      subtasks: t.subtasks.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() })),
+      dependsOn: t.dependsOn.map((d) => d.dependsOn)
     }))
   };
 
@@ -77,7 +82,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         )}
       </div>
 
-      <KanbanBoard project={serialized} currentUserId={user.userId} />
+      <ProjectTabs project={serialized} currentUserId={user.userId} />
     </div>
   );
 }

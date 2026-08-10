@@ -19,7 +19,12 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold">Mis proyectos</h1>
           <p className="text-sm text-slate-500">Tableros de seguimiento y trazabilidad de tareas</p>
         </div>
-        <NewProjectForm />
+        <div className="flex gap-2">
+          <Link href="/projects/global" className="btn-secondary">
+            Proyectos globales
+          </Link>
+          <NewProjectForm />
+        </div>
       </div>
 
       {projects.length === 0 ? (
