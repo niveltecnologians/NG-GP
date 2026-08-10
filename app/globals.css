@@ -34,3 +34,26 @@ a.card:hover,
 .badge {
   @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
 }
+
+/* Imprimir solo el cronograma (diagrama de Gantt): oculta todo lo demás de
+   la página (navbar, pestañas, botones) y deja el diagrama ocupando toda
+   la hoja. Para cronogramas anchos, conviene elegir horizontal/apaisado y
+   "ajustar a la página" en el cuadro de diálogo de impresión. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .gantt-printable,
+  .gantt-printable * {
+    visibility: visible;
+  }
+  .gantt-printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

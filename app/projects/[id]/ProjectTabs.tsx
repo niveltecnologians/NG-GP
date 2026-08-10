@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ProjectDetail, Task } from "@/lib/types";
+import { ProjectDetail, Task, BOARD_MODE_COLUMNS } from "@/lib/types";
 import KanbanBoard from "@/components/KanbanBoard";
 import GanttChart from "@/components/GanttChart";
 import BudgetTab from "@/components/BudgetTab";
@@ -23,6 +23,7 @@ export default function ProjectTabs({
 }) {
   const [view, setView] = useState<View>("board");
   const [tasks, setTasks] = useState<Task[]>(project.tasks);
+  const statusOptions = BOARD_MODE_COLUMNS[project.boardMode || "TASKS"];
 
   return (
     <div>
@@ -45,7 +46,15 @@ export default function ProjectTabs({
       {view === "board" && (
         <KanbanBoard project={project} currentUserId={currentUserId} tasks={tasks} setTasks={setTasks} />
       )}
-      {view === "gantt" && <GanttChart tasks={tasks} />}
+      {view === "gantt" && (
+        <GanttChart
+          tasks={tasks}
+          setTasks={setTasks}
+          projectId={project.id}
+          members={project.members}
+          statusOptions={statusOptions}
+        />
+      )}
       {view === "budget" && <BudgetTab projectId={project.id} tasks={tasks} setTasks={setTasks} />}
     </div>
   );

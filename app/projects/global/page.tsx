@@ -87,6 +87,20 @@ export default async function GlobalProjectsPage() {
     }
   }
 
+  // Dentro de cada columna, primero lo más urgente y, entre tareas de la
+  // misma prioridad, primero lo que vence más pronto (sin fecha, al final).
+  const PRIORITY_RANK: Record<ColumnTask["priority"], number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+  columns.forEach((list) => {
+    list.sort((a, b) => {
+      const byPriority = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+      if (byPriority !== 0) return byPriority;
+      if (a.dueDate && b.dueDate) return a.dueDate.getTime() - b.dueDate.getTime();
+      if (a.dueDate) return -1;
+      if (b.dueDate) return 1;
+      return 0;
+    });
+  });
+
   const activeColumns = COLUMN_ORDER.filter((s) => (columns.get(s) || []).length > 0);
 
   return (
@@ -107,17 +121,23 @@ export default async function GlobalProjectsPage() {
       {activeColumns.length === 0 ? (
         <div className="card p-10 text-center text-slate-500">Todavía no hay tareas en tus proyectos.</div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div
+          className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${
+            activeColumns.length > 4 ? "lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" : "lg:grid-cols-4"
+          }`}
+        >
           {activeColumns.map((statusValue) => {
             const tasks = columns.get(statusValue) || [];
             return (
-              <div key={statusValue} className="w-72 shrink-0">
-                <div className="mb-2 flex items-center gap-2 px-1">
+              <div key={statusValue} className="min-w-0 rounded-xl bg-slate-100/70 p-3">
+                <div className="mb-2 flex items-center gap-2 px-0.5">
                   <span className={`h-2 w-2 rounded-full ${STATUS_DOT[statusValue]}`} />
                   <h2 className="text-sm font-semibold text-slate-700">{STATUS_LABELS[statusValue]}</h2>
-                  <span className="text-xs text-slate-400">({tasks.length})</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-400 shadow-sm">
+                    {tasks.length}
+                  </span>
                 </div>
-                <div className="space-y-2">
+                <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-0.5">
                   {tasks.map((t) => {
                     const dueState = getDueState(t.dueDate ? t.dueDate.toISOString() : null, statusValue);
                     return (
