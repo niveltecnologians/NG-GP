@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Task, PRIORITY_COLORS, PRIORITY_LABELS } from "@/lib/types";
+import {
+  Task,
+  PRIORITY_COLORS,
+  PRIORITY_LABELS,
+  AREA_LABELS,
+  AREA_BADGE_COLORS,
+  AREA_BORDER_COLORS,
+  PHASE_LABELS,
+  PHASE_BADGE_COLORS
+} from "@/lib/types";
 import { getDueState } from "@/lib/taskDates";
 
 export default function TaskCard({
@@ -22,7 +31,9 @@ export default function TaskCard({
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
-      className="card-interactive card group cursor-pointer p-3 active:cursor-grabbing"
+      className={`card-interactive card group cursor-pointer p-3 active:cursor-grabbing ${
+        task.area ? `border-l-4 ${AREA_BORDER_COLORS[task.area]}` : ""
+      }`}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-900 group-hover:text-brand-700">{task.title}</p>
@@ -45,8 +56,23 @@ export default function TaskCard({
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className={`badge ${PRIORITY_COLORS[task.priority]}`}>{PRIORITY_LABELS[task.priority]}</span>
+        {task.area && (
+          <span className={`badge ${AREA_BADGE_COLORS[task.area]}`}>{AREA_LABELS[task.area]}</span>
+        )}
+        {task.phase && (
+          <span className={`badge ${PHASE_BADGE_COLORS[task.phase]}`}>{PHASE_LABELS[task.phase]}</span>
+        )}
         {task.attachments.length > 0 && (
           <span className="text-[11px] text-slate-400">📎 {task.attachments.length}</span>
+        )}
+        {task.subtasks.length > 0 && (
+          <span
+            className={`text-[11px] ${
+              task.subtasks.every((s) => s.done) ? "font-medium text-emerald-600" : "text-slate-400"
+            }`}
+          >
+            ☑ {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length}
+          </span>
         )}
         {dueState === "done" && (
           <span className="text-[11px] font-medium text-emerald-600">✅ Realizada</span>

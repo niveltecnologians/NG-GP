@@ -59,6 +59,24 @@ enum TaskPriority {
   URGENT
 }
 
+// Área/oficio al que pertenece la tarea; cada una tiene un color fijo en la
+// interfaz (Carpintería = amarillo, Redes = rojo, Arquitectura = azul).
+enum TaskArea {
+  CARPINTERIA
+  REDES
+  ARQUITECTURA
+}
+
+// Fase del proceso a la que pertenece la actividad (independiente del
+// estado del tablero Kanban y del proyecto): en qué parte del proceso de
+// obra está esa tarea puntual.
+enum TaskPhase {
+  DISENO
+  PRESUPUESTO
+  EJECUCION
+  LIQUIDACION
+}
+
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -117,6 +135,8 @@ model User {
 
   calendarEvents       CalendarEvent[]      @relation("CalendarOwner")
   calendarEventsCreated CalendarEvent[]     @relation("CalendarCreator")
+
+  taskComments         TaskComment[]
 }
 
 model InviteCode {
@@ -164,6 +184,10 @@ model Task {
   description String?
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIUM)
+  area        TaskArea?
+  phase       TaskPhase?
+  budget      Float?
+  startDate   DateTime?
   dueDate     DateTime?
 
   projectId   String
@@ -176,9 +200,70 @@ model Task {
   createdBy   User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   attachments Attachment[]
+  comments    TaskComment[]
+  subtasks    SubTask[]
+
+  // Dependencias para el diagrama de Gantt / ruta crítica: de qué otras
+  // tareas depende esta (no puede empezar hasta que terminen), y qué otras
+  // tareas dependen de esta.
+  dependsOn   TaskDependency[] @relation("DependentTask")
+  dependents  TaskDependency[] @relation("PrerequisiteTask")
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+// Relación "esta tarea no puede empezar hasta que termine esta otra", entre
+// dos tareas del mismo proyecto. Es la base para calcular la ruta crítica.
+model TaskDependency {
+  id            String @id @default(cuid())
+
+  taskId        String
+  task          Task   @relation("DependentTask", fields: [taskId], references: [id], onDelete: Cascade)
+
+  dependsOnId   String
+  dependsOn     Task   @relation("PrerequisiteTask", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+
+  @@unique([taskId, dependsOnId])
+  @@index([taskId])
+  @@index([dependsOnId])
+}
+
+// Observaciones: historial de notas que cualquier persona con acceso a la
+// tarea puede ir agregando, cada una con su autor y su fecha. No se editan
+// ni se borran, quedan como un registro de lo que fue pasando.
+model TaskComment {
+  id        String   @id @default(cuid())
+  content   String
+
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+// Subtareas: un checklist simple dentro de la tarea. Al marcar la última
+// pendiente, la tarea completa pasa sola a su estado final.
+model SubTask {
+  id        String   @id @default(cuid())
+  title     String
+  done      Boolean  @default(false)
+  order     Int      @default(0)
+
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
 }
 
 model Attachment {

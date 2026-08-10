@@ -1,19 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { ProjectDetail, Task, TaskStatus, STATUS_LABELS, STATUS_DOT, BOARD_MODE_COLUMNS } from "@/lib/types";
 import TaskCard from "@/components/TaskCard";
 import TaskModal from "@/components/TaskModal";
 
 export default function KanbanBoard({
   project,
-  currentUserId
+  currentUserId,
+  tasks,
+  setTasks
 }: {
   project: ProjectDetail;
   currentUserId: string;
+  tasks: Task[];
+  setTasks: Dispatch<SetStateAction<Task[]>>;
 }) {
   const COLUMNS = BOARD_MODE_COLUMNS[project.boardMode || "TASKS"];
-  const [tasks, setTasks] = useState<Task[]>(project.tasks);
   const [editingTask, setEditingTask] = useState<Task | null | undefined>(undefined); // undefined = cerrado
 
   function handleSaved(task: Task) {
@@ -99,6 +102,7 @@ export default function KanbanBoard({
           members={project.members}
           statusOptions={COLUMNS}
           task={editingTask}
+          allTasks={tasks}
           onClose={() => setEditingTask(undefined)}
           onSaved={handleSaved}
           onDeleted={handleDeleted}

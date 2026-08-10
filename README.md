@@ -6,6 +6,50 @@ MVP funcional de una plataforma de gestión de proyectos y tareas, con base de d
 
 Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (agregan columnas nuevas a `User` para el perfil/personalización, y la tabla nueva de mensajes de chat), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
 
+## Novedades de esta versión (cronograma con ruta crítica, presupuesto en Excel, fase por actividad)
+
+Dentro de cada proyecto, arriba del tablero, ahora hay tres pestañas: **Tablero** (el Kanban de siempre), **Cronograma** (nuevo) y **Presupuesto** (nuevo).
+
+### Fase de la actividad (Diseño / Presupuesto / Ejecución / Liquidación)
+
+Cada **tarea** (actividad) de cualquier proyecto —sea de modo Tareas o Administrativo— se puede clasificar ahora en una **Fase**: Diseño, Presupuesto, Ejecución o Liquidación. Se elige en el formulario de la tarea y queda como una etiqueta de color en la tarjeta.
+
+Ojo, esto es distinto del **estado** de la tarjeta en el tablero (que ya existía): el estado dice en qué columna del Kanban está la tarea ahora mismo (Por hacer, En progreso, Prospectos, etc.), mientras que la fase dice a qué parte del proceso general pertenece esa actividad puntual, y se puede usar en cualquier proyecto sin importar el modo del tablero. Puedes dejarla sin fase si no la necesitas.
+
+### Cronograma con ruta crítica (nuevo)
+
+En la pestaña "Cronograma" cada actividad con fecha aparece como una barra horizontal según su **fecha de inicio** y su **fecha límite** (ambas nuevas en el formulario de la tarea). Si además marcas de qué otras tareas depende cada una (nuevo campo "Depende de", con la lista de las demás actividades del proyecto para marcar cuáles tienen que terminar antes), la app calcula sola la **ruta crítica**: la cadena de tareas que, si cualquiera se atrasa, atrasa todo el proyecto. Esas tareas quedan resaltadas en rojo en el diagrama, con la lista completa de la ruta arriba (tipo "Diseño planos → Cimentación → Estructura → ...") y cuánto dura en total. Las demás tareas se colorean según su fase, y al pasar el mouse sobre una barra se ve su holgura (cuántos días de margen tiene antes de volverse crítica).
+
+Si una tarea no tiene fecha, no aparece en el cronograma (no hay con qué ubicarla).
+
+### Presupuesto por actividad, con plantilla Excel (nuevo)
+
+En la pestaña "Presupuesto" hay dos botones: **"Descargar plantilla Excel"**, que te da un archivo .xlsx con todas las actividades del proyecto ya listadas (columnas: ID técnico que no hay que tocar, Actividad, Fase, Área y Presupuesto), y **"Subir Excel"**, para volver a subir ese mismo archivo después de llenar la columna de presupuesto (y de paso puedes ajustar ahí mismo la Fase o el Área si quieres, escribiendo el nombre tal cual aparece en la app). Al subirlo, cada actividad se actualiza sola por su ID — no hace falta escribir nada a mano en el sistema. La pestaña también muestra una tabla con el presupuesto cargado por actividad y el total sumado del proyecto.
+
+No hace falta ninguna acción manual además de subir esta versión: las columnas y tabla nuevas (`startDate`, `phase`, `budget` en las tareas, y `TaskDependency`) se crean solas en la base de datos la primera vez que Vercel construye el proyecto. Esta versión además agrega una librería nueva (`xlsx`) al proyecto para generar y leer los archivos de Excel; Vercel la instala sola al desplegar, como cualquier otra dependencia del `package.json`.
+
+## Novedades de esta versión (observaciones, subtareas, áreas, prioridad automática y vista global)
+
+- **Observaciones en las tareas**: dentro de una tarea hay una nueva sección "Observaciones" donde cualquier persona con acceso al proyecto puede ir dejando notas a lo largo del tiempo. Cada una queda con el nombre de quien la escribió y la fecha — es un historial, no se pueden editar ni borrar después, para que quede como un registro confiable de lo que fue pasando.
+
+- **Subtareas (checklist)**: también hay una sección "Subtareas" donde puedes ir agregando ítems sueltos y tildándolos a medida que se completan (con un contador tipo "3/5" tanto en la tarjeta del tablero como dentro de la tarea). **Al tildar la última subtarea pendiente, la tarea completa pasa sola a su estado final** (Terminado en modo Tareas, Pos venta en modo Administrativo) — no hace falta moverla a mano en el tablero. Si después destildas una subtarea, la tarea no vuelve atrás sola; el estado se puede seguir cambiando a mano en cualquier momento.
+
+- **Área de la tarea, con color automático**: al crear o editar una tarea ahora puedes elegir su área — Carpintería, Redes o Arquitectura — y la tarjeta se colorea sola según lo que elijas (Carpintería = amarillo, Redes = rojo, Arquitectura = azul), tanto con una etiqueta de color como con una franja de color al lado izquierdo de la tarjeta en el tablero. El color no se elige a mano, lo asigna la app según el área.
+
+- **Prioridad automática según la fecha límite**: ya no se elige la prioridad a mano cuando la tarea tiene fecha límite — se calcula sola según cuánto falta:
+  - 3 días o menos (o ya vencida): **Urgente**
+  - de 3 a 7 días: **Alta**
+  - de 7 a 12 días: **Media**
+  - más de 12 días: **Baja**
+
+  Se recalcula automáticamente cada vez que alguien entra a un proyecto, a los informes o a la vista global (por si cambió cuánto falta desde la última vez que se vio), y además hay un **cron diario en Vercel** (`vercel.json`, a las 00:00 hora Colombia) que la recalcula igual aunque nadie entre a la app ese día — así que de verdad se mantiene al día sola, sin que nadie tenga que acordarse de cambiarla. Si la tarea no tiene fecha límite (o ya está terminada), la prioridad se puede seguir eligiendo a mano como antes.
+
+  Opcional: si quieres que ese cron diario solo pueda dispararlo Vercel (y no cualquiera que adivine la URL), puedes agregar una variable de entorno `CRON_SECRET` en Vercel con cualquier texto secreto — Vercel la usa sola para autenticar su propio cron. Si no la agregas, no pasa nada grave: esa ruta solo recalcula prioridades, no borra ni expone información.
+
+- **Proyectos globales**: en "Mis proyectos" hay un nuevo botón **"Proyectos globales"** que junta las tareas de *todos* tus proyectos en un solo tablero, agrupadas por columna de estado — todos los "Prospectos" de todas las obras juntos, todos los "Diseño" juntos, todos los "Presupuesto", toda la "Ejecución", etc. (y lo mismo para los proyectos en modo Tareas). Cada tarjeta muestra de qué proyecto es, su prioridad, su área y su fecha límite, y al tocarla te lleva directo a su proyecto para abrirla y editarla.
+
+No hace falta ninguna acción manual además de subir esta versión: las tablas y columnas nuevas (`TaskComment`, `SubTask`, la columna `area` en las tareas) se crean solas en la base de datos la primera vez que Vercel construye el proyecto.
+
 ## Novedades de esta versión (permisos y edición)
 
 - **Menciones**: ahora se marcan como leídas automáticamente al ver el mensaje (ya no hace falta responder); dejan de aparecer como pendientes y de notificar apenas las ves.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { safeBlobPathname } from "@/lib/blobPath";
 import {
@@ -8,31 +8,156 @@ import {
   ProjectMember,
   TaskStatus,
   TaskPriority,
+  TaskArea,
+  TaskPhase,
+  SubTask,
+  TaskComment,
   STATUS_LABELS,
-  PRIORITY_LABELS
+  PRIORITY_LABELS,
+  PRIORITY_COLORS,
+  AREA_LABELS,
+  AREA_BADGE_COLORS,
+  PHASE_LABELS,
+  PHASE_BADGE_COLORS
 } from "@/lib/types";
+import { computeAutoPriority } from "@/lib/priorityRules";
 
 type Props = {
   projectId: string;
   members: ProjectMember[];
   statusOptions: TaskStatus[];
   task: Task | null; // null = modo creación
+  allTasks: Task[]; // para elegir de qué tareas depende (ruta crítica / Gantt)
   onClose: () => void;
   onSaved: (task: Task) => void;
   onDeleted: (taskId: string) => void;
 };
 
-export default function TaskModal({ projectId, members, statusOptions, task, onClose, onSaved, onDeleted }: Props) {
+export default function TaskModal({ projectId, members, statusOptions, task, allTasks, onClose, onSaved, onDeleted }: Props) {
   const [current, setCurrent] = useState<Task | null>(task);
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
   const [status, setStatus] = useState<TaskStatus>(task?.status || statusOptions[0]);
   const [priority, setPriority] = useState<TaskPriority>(task?.priority || "MEDIUM");
+  const [area, setArea] = useState<TaskArea | "">(task?.area || "");
+  const [phase, setPhase] = useState<TaskPhase | "">(task?.phase || "");
+  const [budget, setBudget] = useState(task?.budget !== null && task?.budget !== undefined ? String(task.budget) : "");
   const [assigneeId, setAssigneeId] = useState(task?.assignee?.id || "");
+  const [startDate, setStartDate] = useState(task?.startDate ? task.startDate.slice(0, 10) : "");
   const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.slice(0, 10) : "");
+  const [dependsOnIds, setDependsOnIds] = useState<string[]>(task?.dependsOn.map((d) => d.id) || []);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function toggleDependsOn(id: string) {
+    setDependsOnIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  const [subtasks, setSubtasks] = useState<SubTask[]>(task?.subtasks || []);
+  const [newSubtask, setNewSubtask] = useState("");
+  const [subtaskLoading, setSubtaskLoading] = useState(false);
+
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!task) return;
+    fetch(`/api/tasks/${task.id}/comments`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setComments(data);
+      })
+      .catch(() => {})
+      .finally(() => setCommentsLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleAddSubtask(e: React.FormEvent) {
+    e.preventDefault();
+    if (!current || !newSubtask.trim()) return;
+    setSubtaskLoading(true);
+    const res = await fetch(`/api/tasks/${current.id}/subtasks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: newSubtask.trim() })
+    });
+    setSubtaskLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo agregar la subtarea");
+      return;
+    }
+    const created = await res.json();
+    setNewSubtask("");
+    setSubtasks((prev) => {
+      const updated = [...prev, created];
+      setCurrent((c) => (c ? { ...c, subtasks: updated } : c));
+      return updated;
+    });
+  }
+
+  async function handleToggleSubtask(subtask: SubTask) {
+    if (!current) return;
+    const res = await fetch(`/api/tasks/${current.id}/subtasks/${subtask.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !subtask.done })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo actualizar la subtarea");
+      return;
+    }
+    const { subtask: updatedSubtask, task: updatedTask } = await res.json();
+    if (updatedTask) {
+      // Se completaron todas las subtareas: la tarea pasó sola a su estado final.
+      setCurrent(updatedTask);
+      setStatus(updatedTask.status);
+      setSubtasks(updatedTask.subtasks);
+      onSaved(updatedTask);
+    } else {
+      setSubtasks((prev) => {
+        const updated = prev.map((s) => (s.id === updatedSubtask.id ? updatedSubtask : s));
+        setCurrent((c) => (c ? { ...c, subtasks: updated } : c));
+        return updated;
+      });
+    }
+  }
+
+  async function handleDeleteSubtask(subtaskId: string) {
+    if (!current) return;
+    const res = await fetch(`/api/tasks/${current.id}/subtasks/${subtaskId}`, { method: "DELETE" });
+    if (res.ok) {
+      setSubtasks((prev) => {
+        const updated = prev.filter((s) => s.id !== subtaskId);
+        setCurrent((c) => (c ? { ...c, subtasks: updated } : c));
+        return updated;
+      });
+    }
+  }
+
+  async function handleAddComment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!current || !newComment.trim()) return;
+    setCommentLoading(true);
+    const res = await fetch(`/api/tasks/${current.id}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: newComment.trim() })
+    });
+    setCommentLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "No se pudo agregar la observación");
+      return;
+    }
+    const created = await res.json();
+    setComments((prev) => [...prev, created]);
+    setNewComment("");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +168,20 @@ export default function TaskModal({ projectId, members, statusOptions, task, onC
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, projectId, assigneeId, priority, dueDate, status: statusOptions[0] })
+        body: JSON.stringify({
+          title,
+          description,
+          projectId,
+          assigneeId,
+          priority,
+          area: area || null,
+          phase: phase || null,
+          budget: budget === "" ? null : Number(budget),
+          startDate,
+          dueDate,
+          status: statusOptions[0],
+          dependsOnIds
+        })
       });
       setLoading(false);
       if (!res.ok) {
@@ -58,7 +196,19 @@ export default function TaskModal({ projectId, members, statusOptions, task, onC
       const res = await fetch(`/api/tasks/${current.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description, status, priority, assigneeId, dueDate })
+        body: JSON.stringify({
+          title,
+          description,
+          status,
+          priority,
+          area: area || null,
+          phase: phase || null,
+          budget: budget === "" ? null : Number(budget),
+          assigneeId,
+          startDate,
+          dueDate,
+          dependsOnIds
+        })
       });
       setLoading(false);
       if (!res.ok) {
@@ -178,15 +328,42 @@ export default function TaskModal({ projectId, members, statusOptions, task, onC
           )}
           <div>
             <label className="mb-1 block text-sm font-medium">Prioridad</label>
-            <select className="input" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
-              {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
+            {(() => {
+              const auto = computeAutoPriority(dueDate || null, status);
+              if (auto) {
+                return (
+                  <div>
+                    <span className={`badge ${PRIORITY_COLORS[auto]}`}>{PRIORITY_LABELS[auto]}</span>
+                    <p className="mt-1 text-[11px] text-slate-400">Automática, según la fecha límite</p>
+                  </div>
+                );
+              }
+              return (
+                <select className="input" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>
+                  {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              );
+            })()}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Área</label>
+            <select className="input" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
+              <option value="">Sin área</option>
+              {Object.entries(AREA_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {area && (
+              <span className={`badge mt-1 inline-block ${AREA_BADGE_COLORS[area as TaskArea]}`}>
+                {AREA_LABELS[area as TaskArea]}
+              </span>
+            )}
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Asignado a</label>
             <select className="input" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
@@ -196,10 +373,116 @@ export default function TaskModal({ projectId, members, statusOptions, task, onC
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Fase</label>
+            <select className="input" value={phase} onChange={(e) => setPhase(e.target.value as TaskPhase | "")}>
+              <option value="">Sin fase</option>
+              {Object.entries(PHASE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {phase && (
+              <span className={`badge mt-1 inline-block ${PHASE_BADGE_COLORS[phase as TaskPhase]}`}>
+                {PHASE_LABELS[phase as TaskPhase]}
+              </span>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Presupuesto (COP)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              className="input"
+              placeholder="Sin definir"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium">Fecha de inicio</label>
+            <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Fecha límite</label>
             <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </div>
+        </div>
+
+        {allTasks.filter((t) => t.id !== current?.id).length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium">Depende de</label>
+            <p className="mb-1 text-xs text-slate-400">
+              No puede empezar hasta que terminen estas tareas. Se usa para calcular la ruta crítica en el
+              cronograma.
+            </p>
+            <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+              {allTasks
+                .filter((t) => t.id !== current?.id)
+                .map((t) => (
+                  <label key={t.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-slate-50">
+                    <input
+                      type="checkbox"
+                      checked={dependsOnIds.includes(t.id)}
+                      onChange={() => toggleDependsOn(t.id)}
+                    />
+                    <span className="truncate">{t.title}</span>
+                  </label>
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">
+            Subtareas
+            {subtasks.length > 0 && (
+              <span className="ml-1 font-normal text-slate-400">
+                ({subtasks.filter((s) => s.done).length}/{subtasks.length})
+              </span>
+            )}
+          </label>
+          {!current && <p className="text-xs text-slate-400">Guarda la tarea primero para poder agregar subtareas.</p>}
+          {current && (
+            <div className="space-y-2">
+              <ul className="space-y-1">
+                {subtasks.map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1 text-sm">
+                    <input type="checkbox" checked={s.done} onChange={() => handleToggleSubtask(s)} />
+                    <span className={`flex-1 ${s.done ? "text-slate-400 line-through" : ""}`}>{s.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSubtask(s.id)}
+                      className="shrink-0 text-xs text-red-600 hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </li>
+                ))}
+                {subtasks.length === 0 && <li className="text-xs text-slate-400">Sin subtareas aún</li>}
+              </ul>
+              <form onSubmit={handleAddSubtask} className="flex gap-2">
+                <input
+                  className="input flex-1"
+                  placeholder="Nueva subtarea"
+                  value={newSubtask}
+                  onChange={(e) => setNewSubtask(e.target.value)}
+                />
+                <button type="submit" disabled={subtaskLoading || !newSubtask.trim()} className="btn-secondary shrink-0 text-sm">
+                  Agregar
+                </button>
+              </form>
+              {subtasks.length > 0 && (
+                <p className="text-xs text-slate-400">Al tildar todas, la tarea pasa sola a su estado final.</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div>
@@ -230,6 +513,45 @@ export default function TaskModal({ projectId, members, statusOptions, task, onC
               <input type="file" multiple onChange={handleUpload} disabled={uploading} className="text-sm" />
               {uploading && <p className="text-xs text-slate-400">Subiendo...</p>}
               <p className="text-xs text-slate-400">Puedes seleccionar varios archivos a la vez; los anteriores no se borran.</p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">Observaciones</label>
+          {!current && <p className="text-xs text-slate-400">Guarda la tarea primero para poder dejar observaciones.</p>}
+          {current && (
+            <div className="space-y-2">
+              <div className="max-h-40 space-y-2 overflow-y-auto">
+                {comments.map((c) => (
+                  <div key={c.id} className="rounded-md border border-slate-200 px-2 py-1.5 text-sm">
+                    <p className="whitespace-pre-wrap text-slate-700">{c.content}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-400">
+                      {c.author?.name || "Alguien"} · {new Date(c.createdAt).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}
+                    </p>
+                  </div>
+                ))}
+                {commentsLoaded && comments.length === 0 && (
+                  <p className="text-xs text-slate-400">Sin observaciones aún</p>
+                )}
+              </div>
+              <form onSubmit={handleAddComment} className="flex gap-2">
+                <textarea
+                  className="input flex-1"
+                  rows={2}
+                  placeholder="Escribe una observación..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={commentLoading || !newComment.trim()}
+                  className="btn-secondary shrink-0 self-end text-sm"
+                >
+                  Agregar
+                </button>
+              </form>
+              <p className="text-xs text-slate-400">Quedan como historial: no se pueden editar ni borrar después.</p>
             </div>
           )}
         </div>
