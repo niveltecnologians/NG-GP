@@ -22,6 +22,12 @@ En la pestaña "Cronograma" cada actividad con fecha aparece como una barra hori
 
 Si una tarea no tiene fecha, no aparece en el cronograma (no hay con qué ubicarla).
 
+**Ahora se ve y se maneja más como Microsoft Project:** a la izquierda hay una tabla con columnas Actividad, Inicio, Fin, Duración y Avance (el avance se calcula solo, según cuántas subtareas de la lista de chequeo estén marcadas, o 100% si la tarea ya está en un estado final); a la derecha, las barras con la regla de fechas arriba y flechas que muestran de qué depende cada actividad. Se puede:
+
+- **Agregar actividades directo desde ahí**: el botón "+ Nueva actividad" abre el mismo formulario de tarea, sin tener que ir al tablero.
+- **Editar cualquier actividad con un clic**: tocar su fila en la tabla o su barra abre el formulario para cambiar fechas, dependencias, fase, etc.
+- **Imprimir el diagrama**: el botón "🖨️ Imprimir" abre el diálogo de impresión del navegador mostrando solo el cronograma (sin menú ni botones), listo como diagrama de trazabilidad en papel o PDF. Para cronogramas largos conviene elegir orientación horizontal y "ajustar a la página" en ese diálogo.
+
 ### Presupuesto por actividad, con plantilla Excel (nuevo)
 
 En la pestaña "Presupuesto" hay dos botones: **"Descargar plantilla Excel"**, que te da un archivo .xlsx con todas las actividades del proyecto ya listadas (columnas: ID técnico que no hay que tocar, Actividad, Fase, Área y Presupuesto), y **"Subir Excel"**, para volver a subir ese mismo archivo después de llenar la columna de presupuesto (y de paso puedes ajustar ahí mismo la Fase o el Área si quieres, escribiendo el nombre tal cual aparece en la app). Al subirlo, cada actividad se actualiza sola por su ID — no hace falta escribir nada a mano en el sistema. La pestaña también muestra una tabla con el presupuesto cargado por actividad y el total sumado del proyecto.

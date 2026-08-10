@@ -375,73 +375,9 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Fase</label>
-            <select className="input" value={phase} onChange={(e) => setPhase(e.target.value as TaskPhase | "")}>
-              <option value="">Sin fase</option>
-              {Object.entries(PHASE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            {phase && (
-              <span className={`badge mt-1 inline-block ${PHASE_BADGE_COLORS[phase as TaskPhase]}`}>
-                {PHASE_LABELS[phase as TaskPhase]}
-              </span>
-            )}
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Presupuesto (COP)</label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              className="input"
-              placeholder="Sin definir"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Fecha de inicio</label>
-            <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Fecha límite</label>
-            <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </div>
-        </div>
-
-        {allTasks.filter((t) => t.id !== current?.id).length > 0 && (
-          <div>
-            <label className="mb-1 block text-sm font-medium">Depende de</label>
-            <p className="mb-1 text-xs text-slate-400">
-              No puede empezar hasta que terminen estas tareas. Se usa para calcular la ruta crítica en el
-              cronograma.
-            </p>
-            <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
-              {allTasks
-                .filter((t) => t.id !== current?.id)
-                .map((t) => (
-                  <label key={t.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-slate-50">
-                    <input
-                      type="checkbox"
-                      checked={dependsOnIds.includes(t.id)}
-                      onChange={() => toggleDependsOn(t.id)}
-                    />
-                    <span className="truncate">{t.title}</span>
-                  </label>
-                ))}
-            </div>
-          </div>
-        )}
-
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Subtareas
+            Subtareas (lista de chequeo)
             {subtasks.length > 0 && (
               <span className="ml-1 font-normal text-slate-400">
                 ({subtasks.filter((s) => s.done).length}/{subtasks.length})
@@ -552,6 +488,74 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                 </button>
               </form>
               <p className="text-xs text-slate-400">Quedan como historial: no se pueden editar ni borrar después.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4 border-t border-slate-100 pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Cronograma y presupuesto</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Fase</label>
+              <select className="input" value={phase} onChange={(e) => setPhase(e.target.value as TaskPhase | "")}>
+                <option value="">Sin fase</option>
+                {Object.entries(PHASE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              {phase && (
+                <span className={`badge mt-1 inline-block ${PHASE_BADGE_COLORS[phase as TaskPhase]}`}>
+                  {PHASE_LABELS[phase as TaskPhase]}
+                </span>
+              )}
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Presupuesto (COP)</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                className="input"
+                placeholder="Sin definir"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Fecha de inicio</label>
+              <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">Fecha límite</label>
+              <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </div>
+          </div>
+
+          {allTasks.filter((t) => t.id !== current?.id).length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Depende de</label>
+              <p className="mb-1 text-xs text-slate-400">
+                No puede empezar hasta que terminen estas tareas. Se usa para calcular la ruta crítica en el
+                cronograma.
+              </p>
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+                {allTasks
+                  .filter((t) => t.id !== current?.id)
+                  .map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={dependsOnIds.includes(t.id)}
+                        onChange={() => toggleDependsOn(t.id)}
+                      />
+                      <span className="truncate">{t.title}</span>
+                    </label>
+                  ))}
+              </div>
             </div>
           )}
         </div>
