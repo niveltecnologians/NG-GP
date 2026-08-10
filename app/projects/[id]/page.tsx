@@ -44,7 +44,12 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       startDate: t.startDate ? t.startDate.toISOString() : null,
       dueDate: t.dueDate ? t.dueDate.toISOString() : null,
       attachments: t.attachments.map((a) => ({ ...a, createdAt: a.createdAt.toISOString() })),
-      subtasks: t.subtasks.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() })),
+      subtasks: t.subtasks.map((s) => ({
+        ...s,
+        createdAt: s.createdAt.toISOString(),
+        checklist: s.checklist.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() }))
+      })),
+      checklist: t.checklist.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() })),
       dependsOn: t.dependsOn.map((d) => d.dependsOn)
     }))
   };

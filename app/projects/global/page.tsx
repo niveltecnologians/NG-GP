@@ -146,8 +146,10 @@ export default async function GlobalProjectsPage() {
                         href={`/projects/${t.projectId}`}
                         className={`card block p-3 ${t.area ? `border-l-4 ${AREA_BORDER_COLORS[t.area]}` : ""}`}
                       >
-                        <p className="text-sm font-medium text-slate-900">{t.title}</p>
-                        <p className="mt-0.5 truncate text-[11px] text-slate-400">{t.projectName}</p>
+                        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-brand-600">
+                          {t.projectName}
+                        </p>
+                        <p className="mt-0.5 text-sm font-medium text-slate-900">{t.title}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <span className={`badge ${PRIORITY_COLORS[t.priority]}`}>{PRIORITY_LABELS[t.priority]}</span>
                           {t.area && (

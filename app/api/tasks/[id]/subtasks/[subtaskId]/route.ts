@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { ATTACHMENT_LIST_SELECT, SUBTASK_LIST_SELECT } from "@/lib/selects";
+import { SUBTASK_LIST_SELECT, TASK_FULL_INCLUDE } from "@/lib/selects";
 import { BOARD_MODE_COLUMNS, BoardMode } from "@/lib/types";
+
+function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
+  return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
+}
 
 async function assertAccess(taskId: string, userId: string) {
   const task = await prisma.task.findUnique({
@@ -48,16 +52,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (allDone) {
       const finalStatus = [...BOARD_MODE_COLUMNS[task.project.boardMode as BoardMode]].pop()!;
       if (task.status !== finalStatus) {
-        updatedTask = await prisma.task.update({
+        const full = await prisma.task.update({
           where: { id: params.id },
           data: { status: finalStatus },
-          include: {
-            assignee: { select: { id: true, name: true, email: true } },
-            createdBy: { select: { id: true, name: true, email: true } },
-            attachments: { select: ATTACHMENT_LIST_SELECT },
-            subtasks: { select: SUBTASK_LIST_SELECT, orderBy: { order: "asc" } }
-          }
+          include: TASK_FULL_INCLUDE
         });
+        updatedTask = serializeTask(full);
       }
     }
   }
