@@ -6,6 +6,10 @@ MVP funcional de una plataforma de gestión de proyectos y tareas, con base de d
 
 Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (agregan columnas nuevas a `User` para el perfil/personalización, y la tabla nueva de mensajes de chat), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
 
+## Corrección en esta versión
+
+Al crear una tarea nueva, el formulario no dejaba elegir el **Estado** (solo aparecía al editar una tarea ya existente), así que siempre se creaba en la primera columna del tablero (Prospectos o Por hacer), sin importar qué se quisiera. Ahora el campo Estado también aparece al crear la tarea, y se respeta el que elijas.
+
 ## Novedades de esta versión (cronograma con ruta crítica, presupuesto en Excel, fase por actividad)
 
 Dentro de cada proyecto, arriba del tablero, ahora hay tres pestañas: **Tablero** (el Kanban de siempre), **Cronograma** (nuevo) y **Presupuesto** (nuevo).

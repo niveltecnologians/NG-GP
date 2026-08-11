@@ -311,7 +311,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           budget: budget === "" ? null : Number(budget),
           startDate,
           dueDate,
-          status: statusOptions[0],
+          status,
           dependsOnIds
         })
       });
@@ -448,16 +448,14 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {current && (
-            <div>
-              <label className="mb-1 block text-sm font-medium">Estado</label>
-              <select className="input" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>
-                {statusOptions.map((value) => (
-                  <option key={value} value={value}>{STATUS_LABELS[value]}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="mb-1 block text-sm font-medium">Estado</label>
+            <select className="input" value={status} onChange={(e) => setStatus(e.target.value as TaskStatus)}>
+              {statusOptions.map((value) => (
+                <option key={value} value={value}>{STATUS_LABELS[value]}</option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Prioridad</label>
             {(() => {
