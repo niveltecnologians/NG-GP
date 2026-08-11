@@ -3,19 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { SUBTASK_LIST_SELECT, TASK_FULL_INCLUDE } from "@/lib/selects";
 import { BOARD_MODE_COLUMNS, BoardMode } from "@/lib/types";
+import { assertTaskAccess } from "@/lib/taskAccess";
 
 function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
   return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
-}
-
-async function assertAccess(taskId: string, userId: string) {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: { project: { include: { members: true } } }
-  });
-  if (!task) return null;
-  const isMember = task.project.ownerId === userId || task.project.members.some((m) => m.userId === userId);
-  return isMember ? task : null;
 }
 
 // Marca/desmarca una subtarea, o le cambia el título. Si con este cambio
@@ -26,7 +17,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const task = await assertAccess(params.id, user.userId);
+  const task = await assertTaskAccess(params.id, user.userId, user.role);
   if (!task) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
 
   const subtask = await prisma.subTask.findUnique({ where: { id: params.subtaskId } });
@@ -69,7 +60,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const task = await assertAccess(params.id, user.userId);
+  const task = await assertTaskAccess(params.id, user.userId, user.role);
   if (!task) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
 
   const subtask = await prisma.subTask.findUnique({ where: { id: params.subtaskId } });

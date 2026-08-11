@@ -4,18 +4,8 @@ import { getCurrentUser } from "@/lib/session";
 import { TASK_FULL_INCLUDE } from "@/lib/selects";
 import { notifyTaskAssignment } from "@/lib/notify";
 import { computeAutoPriority } from "@/lib/autoPriority";
+import { assertTaskAccess } from "@/lib/taskAccess";
 import type { TaskStatus } from "@/lib/types";
-
-async function assertAccess(taskId: string, userId: string) {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: { project: { include: { members: true } } }
-  });
-  if (!task) return null;
-  const isMember =
-    task.project.ownerId === userId || task.project.members.some((m) => m.userId === userId);
-  return isMember ? task : null;
-}
 
 function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
   return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
@@ -52,7 +42,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const task = await assertAccess(params.id, user.userId);
+  const task = await assertTaskAccess(params.id, user.userId, user.role);
   if (!task) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
 
   const full = await prisma.task.findUnique({
@@ -66,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const task = await assertAccess(params.id, user.userId);
+  const task = await assertTaskAccess(params.id, user.userId, user.role);
   if (!task) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
 
   const body = await req.json();
@@ -145,7 +135,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const task = await assertAccess(params.id, user.userId);
+  const task = await assertTaskAccess(params.id, user.userId, user.role);
   if (!task) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
 
   await prisma.task.delete({ where: { id: params.id } });

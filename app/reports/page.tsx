@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { recalculateTaskPriorities } from "@/lib/autoPriority";
+import { canManageProjectTasks } from "@/lib/taskAccess";
 import ReportsView from "./ReportsView";
 
 export default async function ReportsPage() {
@@ -23,26 +24,33 @@ export default async function ReportsPage() {
     orderBy: { createdAt: "desc" }
   });
 
-  const data = projects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    boardMode: p.boardMode,
-    // El dueño también cuenta como "profesional" del proyecto para el
-    // informe por persona, aunque no esté en la tabla de miembros.
-    members: [
-      p.owner,
-      ...p.members.map((m) => m.user).filter((u) => u.id !== p.owner.id)
-    ],
-    tasks: p.tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      status: t.status,
-      priority: t.priority,
-      dueDate: t.dueDate ? t.dueDate.toISOString() : null,
-      assignee: t.assignee
-    }))
-  }));
+  // Igual que en el tablero: un miembro común solo ve, dentro de cada
+  // proyecto, sus propias tareas asignadas; el dueño de ese proyecto y los
+  // administradores del sistema ven las de todos.
+  const data = projects.map((p) => {
+    const canManage = canManageProjectTasks(p, user.userId, user.role);
+    const visibleTasks = canManage ? p.tasks : p.tasks.filter((t) => t.assigneeId === user.userId);
+    return {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      boardMode: p.boardMode,
+      // El dueño también cuenta como "profesional" del proyecto para el
+      // informe por persona, aunque no esté en la tabla de miembros.
+      members: [
+        p.owner,
+        ...p.members.map((m) => m.user).filter((u) => u.id !== p.owner.id)
+      ],
+      tasks: visibleTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+        assignee: t.assignee
+      }))
+    };
+  });
 
   return (
     <div>

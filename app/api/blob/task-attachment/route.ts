@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { assertTaskAccess } from "@/lib/taskAccess";
 
 // Autoriza la subida de un archivo (grande) directo del navegador a Vercel
 // Blob, sin pasar por el límite de tamaño de las funciones serverless de
@@ -22,14 +22,8 @@ export async function POST(request: Request): Promise<NextResponse> {
         const taskId = clientPayload?.taskId as string | undefined;
         if (!taskId) throw new Error("Falta la tarea de destino");
 
-        const task = await prisma.task.findUnique({
-          where: { id: taskId },
-          include: { project: { include: { members: true } } }
-        });
-        if (!task) throw new Error("Tarea no encontrada");
-        const isMember =
-          task.project.ownerId === user.userId || task.project.members.some((m) => m.userId === user.userId);
-        if (!isMember) throw new Error("No tienes acceso a esta tarea");
+        const task = await assertTaskAccess(taskId, user.userId, user.role);
+        if (!task) throw new Error("No tienes acceso a esta tarea");
 
         return {
           addRandomSuffix: true,

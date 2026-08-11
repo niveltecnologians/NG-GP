@@ -37,9 +37,13 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   const isOwner = project.ownerId === user.userId;
   const canManage = isOwner || user.role === "ADMIN";
 
+  // Un miembro común solo ve las tareas que tiene asignadas a él; el dueño
+  // del proyecto y los administradores del sistema ven todas.
+  const visibleTasks = canManage ? project.tasks : project.tasks.filter((t) => t.assigneeId === user.userId);
+
   const serialized = {
     ...project,
-    tasks: project.tasks.map((t) => ({
+    tasks: visibleTasks.map((t) => ({
       ...t,
       startDate: t.startDate ? t.startDate.toISOString() : null,
       dueDate: t.dueDate ? t.dueDate.toISOString() : null,
@@ -65,6 +69,11 @@ export default async function ProjectPage({ params }: { params: { id: string } }
             {" · "}
             Tablero: {project.boardMode === "ADMIN" ? "Administrativo" : "Tareas"}
           </p>
+          {!canManage && (
+            <p className="mt-1 text-xs text-amber-600">
+              Solo ves las tareas que tienes asignadas. El dueño del proyecto y los administradores ven todas.
+            </p>
+          )}
         </div>
         {canManage && (
           <div className="flex flex-wrap gap-2">

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { canManageProjectTasks } from "@/lib/taskAccess";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
@@ -16,7 +17,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const isMember =
     attachment.task.project.ownerId === user.userId ||
     attachment.task.project.members.some((m) => m.userId === user.userId);
-  if (!isMember) return NextResponse.json({ error: "No tienes acceso a este archivo" }, { status: 403 });
+  const canManage = canManageProjectTasks(attachment.task.project, user.userId, user.role);
+  if (!isMember || (!canManage && attachment.task.assigneeId !== user.userId)) {
+    return NextResponse.json({ error: "No tienes acceso a este archivo" }, { status: 403 });
+  }
 
   // Archivos nuevos (grandes): viven en Vercel Blob, solo redirigimos ahí.
   if (attachment.url) {

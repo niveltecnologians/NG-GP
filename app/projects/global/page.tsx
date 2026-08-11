@@ -13,6 +13,7 @@ import {
   AREA_BORDER_COLORS
 } from "@/lib/types";
 import { getDueState } from "@/lib/taskDates";
+import { canManageProjectTasks } from "@/lib/taskAccess";
 
 // Orden de las columnas: primero las del modo "Tareas", después las del
 // modo "Administrativo" (Prospectos, Diseño, Presupuesto, Ejecución,
@@ -46,6 +47,7 @@ export default async function GlobalProjectsPage() {
       id: true,
       name: true,
       boardMode: true,
+      ownerId: true,
       tasks: {
         select: {
           id: true,
@@ -54,6 +56,7 @@ export default async function GlobalProjectsPage() {
           priority: true,
           area: true,
           dueDate: true,
+          assigneeId: true,
           assignee: { select: { id: true, name: true } },
           subtasks: { select: { done: true } }
         },
@@ -69,16 +72,22 @@ export default async function GlobalProjectsPage() {
     priority: keyof typeof PRIORITY_LABELS;
     area: keyof typeof AREA_LABELS | null;
     dueDate: Date | null;
+    assigneeId: string | null;
     assignee: { id: string; name: string } | null;
     subtasks: { done: boolean }[];
     projectId: string;
     projectName: string;
   };
 
+  // Un miembro común solo ve, dentro de cada proyecto, las tareas que tiene
+  // asignadas a él; el dueño de ese proyecto y los administradores del
+  // sistema ven todas las de ese proyecto.
   const columns = new Map<TaskStatus, ColumnTask[]>();
   let totalTasks = 0;
   for (const project of projects) {
-    for (const t of project.tasks) {
+    const canManage = canManageProjectTasks(project, user.userId, user.role);
+    const visibleTasks = canManage ? project.tasks : project.tasks.filter((t) => t.assigneeId === user.userId);
+    for (const t of visibleTasks) {
       totalTasks++;
       const status = t.status as TaskStatus;
       const list = columns.get(status) || [];
