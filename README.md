@@ -6,6 +6,15 @@ MVP funcional de una plataforma de gestión de proyectos y tareas, con base de d
 
 Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (agregan columnas nuevas a `User` para el perfil/personalización, y la tabla nueva de mensajes de chat), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
 
+## Novedades de esta versión (permisos: cada miembro ve solo lo suyo)
+
+Hasta ahora, cualquier persona agregada a un proyecto podía ver y editar todas las tareas de ese proyecto. A partir de esta versión:
+
+- **Un miembro común solo ve y puede modificar las tareas que tiene asignadas a él.** El resto de las tareas del proyecto no le aparecen — ni en el Tablero, ni en el Cronograma, ni en Presupuesto, ni en Proyectos globales ni en Informes (así que la ruta crítica, el presupuesto total y los conteos que ve cada quien reflejan solo lo que puede ver).
+- **El dueño del proyecto y los administradores del sistema siguen viendo y editando todas las tareas**, sin ningún cambio para ellos.
+- Esta restricción también se aplica del lado del servidor (no solo escondiendo cosas en la pantalla): si alguien intentara acceder directamente a una tarea que no le pertenece, la aplicación la rechaza igual.
+- Cuando un miembro común entra a un proyecto, le aparece un aviso indicándole que solo ve sus tareas asignadas.
+
 ## Corrección en esta versión
 
 Al crear una tarea nueva, el formulario no dejaba elegir el **Estado** (solo aparecía al editar una tarea ya existente), así que siempre se creaba en la primera columna del tablero (Prospectos o Por hacer), sin importar qué se quisiera. Ahora el campo Estado también aparece al crear la tarea, y se respeta el que elijas.
