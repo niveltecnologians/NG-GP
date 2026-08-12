@@ -6,7 +6,18 @@ MVP funcional de una plataforma de gestión de proyectos y tareas, con base de d
 
 Si ya tienes esta app funcionando en Vercel con usuarios y proyectos reales, puedes subir esta versión actualizada sin perder nada: los cambios de base de datos de esta versión son **aditivos** (agregan columnas nuevas a `User` para el perfil/personalización, y la tabla nueva de mensajes de chat), nunca borran ni modifican las tablas existentes. Simplemente sube estos archivos a tu mismo repositorio de GitHub (sobrescribiendo los anteriores) y Vercel va a redesplegar solo.
 
-## Novedades de esta versión (permisos: cada miembro ve solo lo suyo)
+## Novedades de esta versión (asignar una tarea a varias personas)
+
+Antes, cada tarea solo podía tener una persona asignada. Ahora, en el campo **"Asignado a"** del formulario de la tarea puedes marcar más de una persona (aparece como una lista con casillas en vez de un solo selector). Todas las personas marcadas:
+
+- Aparecen en la tarjeta de la tarea (hasta 3 fotos/iniciales; si hay más, se ve un "+N").
+- Reciben el aviso en su bandeja de entrada de que se les asignó la tarea (a los que ya estaban asignados no se les vuelve a avisar).
+- Cuentan como "asignadas" para el permiso de "solo veo mis tareas" de los miembros comunes: si eres una de las personas asignadas, puedes ver y editar esa tarea aunque haya alguien más asignado también.
+- Aparecen todas listadas (separadas por coma) en Proyectos globales e Informes, donde antes solo se veía un nombre.
+
+No hace falta ninguna acción manual: la tabla nueva para guardar varias personas por tarea se crea sola en la base de datos la primera vez que Vercel construye el proyecto, y las tareas que ya tenían una persona asignada se traspasan solas a la nueva lista (un paso automático más del build, no hay que hacer nada a mano ni se pierde ninguna asignación existente).
+
+## Novedades de esta versión anterior (permisos: cada miembro ve solo lo suyo)
 
 Hasta ahora, cualquier persona agregada a un proyecto podía ver y editar todas las tareas de ese proyecto. A partir de esta versión:
 

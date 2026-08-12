@@ -13,6 +13,32 @@ import {
 } from "@/lib/types";
 import { getDueState } from "@/lib/taskDates";
 
+// Un avatar (o iniciales de respaldo si la imagen falla o no hay una).
+function AssigneeAvatar({ user }: { user: { id: string; name: string } }) {
+  const [avatarError, setAvatarError] = useState(false);
+  const initials = user.name.slice(0, 2).toUpperCase();
+
+  if (!avatarError) {
+    return (
+      <img
+        src={`/api/users/${user.id}/avatar`}
+        alt={user.name}
+        title={user.name}
+        onError={() => setAvatarError(true)}
+        className="h-6 w-6 shrink-0 rounded-full border-2 border-white object-cover"
+      />
+    );
+  }
+  return (
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white bg-brand-100 text-[10px] font-semibold text-brand-700"
+      title={user.name}
+    >
+      {initials}
+    </span>
+  );
+}
+
 export default function TaskCard({
   task,
   onClick,
@@ -22,9 +48,10 @@ export default function TaskCard({
   onClick: () => void;
   onDragStart: (e: React.DragEvent) => void;
 }) {
-  const [avatarError, setAvatarError] = useState(false);
-  const initials = task.assignee ? task.assignee.name.slice(0, 2).toUpperCase() : "—";
   const dueState = getDueState(task.dueDate, task.status);
+  // Muestra hasta 3 avatares superpuestos; el resto queda como un "+N".
+  const shownAssignees = task.assignees.slice(0, 3);
+  const extraAssignees = task.assignees.length - shownAssignees.length;
 
   return (
     <div
@@ -37,20 +64,26 @@ export default function TaskCard({
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium text-slate-900 group-hover:text-brand-700">{task.title}</p>
-        {task.assignee && !avatarError ? (
-          <img
-            src={`/api/users/${task.assignee.id}/avatar`}
-            alt={task.assignee.name}
-            title={task.assignee.name}
-            onError={() => setAvatarError(true)}
-            className="h-6 w-6 shrink-0 rounded-full object-cover"
-          />
+        {task.assignees.length > 0 ? (
+          <div className="flex shrink-0 -space-x-2">
+            {shownAssignees.map((a) => (
+              <AssigneeAvatar key={a.id} user={a} />
+            ))}
+            {extraAssignees > 0 && (
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-semibold text-slate-600"
+                title={`${extraAssignees} más`}
+              >
+                +{extraAssignees}
+              </span>
+            )}
+          </div>
         ) : (
           <span
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700"
-            title={task.assignee?.name || "Sin asignar"}
+            title="Sin asignar"
           >
-            {initials}
+            —
           </span>
         )}
       </div>

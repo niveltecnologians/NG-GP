@@ -79,7 +79,7 @@ export type Task = {
   startDate: string | null;
   dueDate: string | null;
   projectId: string;
-  assignee: UserLite | null;
+  assignees: UserLite[];
   createdBy: UserLite | null;
   attachments: Attachment[];
   subtasks: SubTask[];

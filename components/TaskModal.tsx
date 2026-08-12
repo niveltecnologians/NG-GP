@@ -43,13 +43,17 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
   const [area, setArea] = useState<TaskArea | "">(task?.area || "");
   const [phase, setPhase] = useState<TaskPhase | "">(task?.phase || "");
   const [budget, setBudget] = useState(task?.budget !== null && task?.budget !== undefined ? String(task.budget) : "");
-  const [assigneeId, setAssigneeId] = useState(task?.assignee?.id || "");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignees.map((a) => a.id) || []);
   const [startDate, setStartDate] = useState(task?.startDate ? task.startDate.slice(0, 10) : "");
   const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.slice(0, 10) : "");
   const [dependsOnIds, setDependsOnIds] = useState<string[]>(task?.dependsOn.map((d) => d.id) || []);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function toggleAssignee(id: string) {
+    setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   function toggleDependsOn(id: string) {
     setDependsOnIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -301,7 +305,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           title,
           description,
           projectId,
-          assigneeId,
+          assigneeIds,
           priority,
           area: area || null,
           phase: phase || null,
@@ -333,7 +337,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           area: area || null,
           phase: phase || null,
           budget: budget === "" ? null : Number(budget),
-          assigneeId,
+          assigneeIds,
           startDate,
           dueDate,
           dependsOnIds
@@ -494,13 +498,29 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
             )}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Asignado a</label>
-            <select className="input" value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)}>
-              <option value="">Sin asignar</option>
+            <label className="mb-1 block text-sm font-medium">
+              Asignado a
+              {assigneeIds.length > 0 && (
+                <span className="ml-1 font-normal text-slate-400">({assigneeIds.length})</span>
+              )}
+            </label>
+            <div className="max-h-24 space-y-0.5 overflow-y-auto rounded-md border border-slate-300 p-1.5">
               {members.map((m) => (
-                <option key={m.user.id} value={m.user.id}>{m.user.name}</option>
+                <label
+                  key={m.user.id}
+                  className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={assigneeIds.includes(m.user.id)}
+                    onChange={() => toggleAssignee(m.user.id)}
+                  />
+                  <span className="truncate">{m.user.name}</span>
+                </label>
               ))}
-            </select>
+              {members.length === 0 && <p className="px-1 text-xs text-slate-400">Sin miembros</p>}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">Puedes marcar más de una persona.</p>
           </div>
         </div>
 

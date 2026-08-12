@@ -18,14 +18,15 @@ export function canManageProjectTasks(
 export async function assertTaskAccess(taskId: string, userId: string, userRole: "ADMIN" | "MEMBER") {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    include: { project: { include: { members: true } } }
+    include: { project: { include: { members: true } }, assignees: true }
   });
   if (!task) return null;
 
   const isMember = task.project.ownerId === userId || task.project.members.some((m) => m.userId === userId);
   if (!isMember) return null;
 
-  if (!canManageProjectTasks(task.project, userId, userRole) && task.assigneeId !== userId) {
+  const isAssignee = task.assignees.some((a) => a.userId === userId);
+  if (!canManageProjectTasks(task.project, userId, userRole) && !isAssignee) {
     return null;
   }
 

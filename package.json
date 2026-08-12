@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && tsx prisma/backfill-assignees.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "prisma:studio": "prisma studio",

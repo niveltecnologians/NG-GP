@@ -50,8 +50,15 @@ export const TASK_DEPENDS_ON_SELECT = {
   dependsOn: { select: { id: true, title: true } }
 } as const;
 
+// Personas asignadas a la tarea (puede ser más de una). Se selecciona la
+// fila de TaskAssignee con el usuario adentro; las rutas la "aplanan" a una
+// lista simple de personas antes de mandarla al navegador.
+export const TASK_ASSIGNEES_SELECT = {
+  user: { select: { id: true, name: true, email: true } }
+} as const;
+
 export const TASK_FULL_INCLUDE = {
-  assignee: { select: { id: true, name: true, email: true } },
+  assignees: { select: TASK_ASSIGNEES_SELECT, orderBy: { createdAt: "asc" as const } },
   createdBy: { select: { id: true, name: true, email: true } },
   attachments: { select: ATTACHMENT_LIST_SELECT },
   subtasks: { select: SUBTASK_LIST_SELECT, orderBy: { order: "asc" as const } },
