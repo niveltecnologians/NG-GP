@@ -87,8 +87,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleAddSubtask(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleAddSubtask() {
     if (!current || !newSubtask.trim()) return;
     setSubtaskLoading(true);
     const res = await fetch(`/api/tasks/${current.id}/subtasks`, {
@@ -219,8 +218,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
     }
   }
 
-  async function handleAddChecklistItem(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleAddChecklistItem() {
     if (!current || !newChecklistItem.trim()) return;
     setChecklistLoading(true);
     const res = await fetch(`/api/tasks/${current.id}/checklist`, {
@@ -271,8 +269,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
     }
   }
 
-  async function handleAddComment(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleAddComment() {
     if (!current || !newComment.trim()) return;
     setCommentLoading(true);
     const res = await fetch(`/api/tasks/${current.id}/comments`, {
@@ -435,7 +432,9 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
         className="card max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto p-6"
       >
         <h2 className="text-lg font-semibold">{current ? "Editar tarea" : "Nueva tarea"}</h2>
-        {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="sticky top-0 z-10 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600 shadow-sm">{error}</p>
+        )}
 
         <div>
           <label className="mb-1 block text-sm font-medium">Título</label>
@@ -566,13 +565,12 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                           ))}
                           {s.checklist.length === 0 && <li className="text-xs text-slate-400">Sin pasos aún</li>}
                         </ul>
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            handleAddSubtaskChecklistItem(s.id);
-                          }}
-                          className="flex gap-2"
-                        >
+                        {/* Este bloque de "agregar paso" es un div, no un <form>: la tarea
+                            entera ya está dentro de un <form> más grande (el de Guardar
+                            cambios), y anidar formularios de HTML es inválido y puede hacer
+                            que un clic en "Agregar" dispare también el guardado de toda la
+                            tarea sin agregar el paso. */}
+                        <div className="flex gap-2">
                           <input
                             className="input flex-1 text-xs"
                             placeholder="Nuevo paso"
@@ -580,32 +578,45 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                             onChange={(e) =>
                               setNewSubtaskChecklistText((prev) => ({ ...prev, [s.id]: e.target.value }))
                             }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddSubtaskChecklistItem(s.id);
+                              }
+                            }}
                           />
                           <button
-                            type="submit"
+                            type="button"
+                            onClick={() => handleAddSubtaskChecklistItem(s.id)}
                             disabled={subtaskChecklistLoading[s.id] || !(newSubtaskChecklistText[s.id] || "").trim()}
                             className="btn-secondary shrink-0 text-xs"
                           >
                             Agregar
                           </button>
-                        </form>
+                        </div>
                       </div>
                     )}
                   </li>
                 ))}
                 {subtasks.length === 0 && <li className="text-xs text-slate-400">Sin subtareas aún</li>}
               </ul>
-              <form onSubmit={handleAddSubtask} className="flex gap-2">
+              <div className="flex gap-2">
                 <input
                   className="input flex-1"
                   placeholder="Nueva subtarea"
                   value={newSubtask}
                   onChange={(e) => setNewSubtask(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSubtask();
+                    }
+                  }}
                 />
-                <button type="submit" disabled={subtaskLoading || !newSubtask.trim()} className="btn-secondary shrink-0 text-sm">
+                <button type="button" onClick={handleAddSubtask} disabled={subtaskLoading || !newSubtask.trim()} className="btn-secondary shrink-0 text-sm">
                   Agregar
                 </button>
-              </form>
+              </div>
               {subtasks.length > 0 && (
                 <p className="text-xs text-slate-400">
                   Al tildar todas, la tarea pasa sola a su estado final. "Pasos" es una mini lista de chequeo dentro
@@ -646,21 +657,28 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                 ))}
                 {checklist.length === 0 && <li className="text-xs text-slate-400">Sin ítems aún</li>}
               </ul>
-              <form onSubmit={handleAddChecklistItem} className="flex gap-2">
+              <div className="flex gap-2">
                 <input
                   className="input flex-1"
                   placeholder="Nuevo ítem"
                   value={newChecklistItem}
                   onChange={(e) => setNewChecklistItem(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddChecklistItem();
+                    }
+                  }}
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleAddChecklistItem}
                   disabled={checklistLoading || !newChecklistItem.trim()}
                   className="btn-secondary shrink-0 text-sm"
                 >
                   Agregar
                 </button>
-              </form>
+              </div>
               <p className="text-xs text-slate-400">
                 Es independiente de las subtareas: marcar estos ítems no cambia el estado de la tarea.
               </p>
@@ -718,7 +736,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                   <p className="text-xs text-slate-400">Sin observaciones aún</p>
                 )}
               </div>
-              <form onSubmit={handleAddComment} className="flex gap-2">
+              <div className="flex gap-2">
                 <textarea
                   className="input flex-1"
                   rows={2}
@@ -727,13 +745,14 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
                   onChange={(e) => setNewComment(e.target.value)}
                 />
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleAddComment}
                   disabled={commentLoading || !newComment.trim()}
                   className="btn-secondary shrink-0 self-end text-sm"
                 >
                   Agregar
                 </button>
-              </form>
+              </div>
               <p className="text-xs text-slate-400">Quedan como historial: no se pueden editar ni borrar después.</p>
             </div>
           )}

@@ -17,6 +17,12 @@ Hasta ahora, cualquier persona agregada a un proyecto podía ver y editar todas 
 
 ## Corrección en esta versión
 
+Agregar una observación (o una subtarea, un ítem de la lista de chequeo, o un paso dentro de una subtarea) a veces no hacía nada al tocar "Agregar". La causa: esos formularios pequeños estaban anidados dentro del formulario grande de la tarea, algo inválido en HTML que podía hacer que el clic disparara el guardado de toda la tarea en lugar de (o junto con) la acción puntual. Se corrigió esa estructura, así que ahora cada botón "Agregar" hace solo lo que debe.
+
+Además, si algo falla al guardar, el aviso de error ahora se queda visible arriba aunque hayas bajado con el scroll dentro de la tarea, para que no pase desapercibido.
+
+## Corrección en esta versión anterior
+
 Al crear una tarea nueva, el formulario no dejaba elegir el **Estado** (solo aparecía al editar una tarea ya existente), así que siempre se creaba en la primera columna del tablero (Prospectos o Por hacer), sin importar qué se quisiera. Ahora el campo Estado también aparece al crear la tarea, y se respeta el que elijas.
 
 ## Novedades de esta versión (cronograma con ruta crítica, presupuesto en Excel, fase por actividad)
