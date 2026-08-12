@@ -28,10 +28,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   await prisma.projectMember.delete({ where: { id: membership.id } });
 
-  // Lo quita como responsable de tareas del proyecto (conserva el historial).
-  await prisma.task.updateMany({
-    where: { projectId: params.id, assigneeId: params.userId },
-    data: { assigneeId: null }
+  // Lo quita como responsable de las tareas del proyecto (conserva el resto
+  // del historial de la tarea; si tenía más personas asignadas, se quedan).
+  await prisma.taskAssignee.deleteMany({
+    where: { userId: params.userId, task: { projectId: params.id } }
   });
 
   return NextResponse.json({ ok: true });

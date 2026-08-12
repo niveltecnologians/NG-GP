@@ -7,8 +7,17 @@ import { computeAutoPriority } from "@/lib/autoPriority";
 import { assertTaskAccess } from "@/lib/taskAccess";
 import type { TaskStatus } from "@/lib/types";
 
-function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
-  return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
+function serializeTask<
+  T extends {
+    dependsOn: { dependsOn: { id: string; title: string } }[];
+    assignees: { user: { id: string; name: string; email: string } }[];
+  }
+>(task: T) {
+  return {
+    ...task,
+    dependsOn: task.dependsOn.map((d) => d.dependsOn),
+    assignees: task.assignees.map((a) => a.user)
+  };
 }
 
 // Revisa si hacer que `taskId` dependa de `candidateDependsOnId` cerraría un
@@ -64,7 +73,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.title !== undefined) data.title = body.title;
   if (body.description !== undefined) data.description = body.description;
   if (body.status !== undefined) data.status = body.status;
-  if (body.assigneeId !== undefined) data.assigneeId = body.assigneeId || null;
   if (body.area !== undefined) data.area = body.area || null;
   if (body.phase !== undefined) data.phase = body.phase || null;
   if (body.budget !== undefined) {
@@ -111,16 +119,34 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
   }
 
+  // Si vienen personas asignadas nuevas, se reemplaza el conjunto completo
+  // (solo se aceptan ids de gente que sí pertenece al proyecto).
+  let newlyAddedAssigneeIds: string[] = [];
+  if (Array.isArray(body.assigneeIds)) {
+    const previousAssigneeIds = task.assignees.map((a) => a.userId);
+    const validAssigneeIds: string[] = body.assigneeIds.filter(
+      (id: string) => id === task.project.ownerId || task.project.members.some((m) => m.userId === id)
+    );
+    newlyAddedAssigneeIds = validAssigneeIds.filter((id) => !previousAssigneeIds.includes(id));
+
+    await prisma.taskAssignee.deleteMany({ where: { taskId: params.id } });
+    if (validAssigneeIds.length > 0) {
+      await prisma.taskAssignee.createMany({
+        data: validAssigneeIds.map((userId) => ({ taskId: params.id, userId })),
+        skipDuplicates: true
+      });
+    }
+  }
+
   const updated = await prisma.task.findUnique({
     where: { id: params.id },
     include: TASK_FULL_INCLUDE
   });
   if (!updated) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 });
 
-  const assigneeChanged = body.assigneeId !== undefined && updated.assigneeId !== task.assigneeId;
-  if (assigneeChanged && updated.assigneeId) {
+  for (const assigneeId of newlyAddedAssigneeIds) {
     await notifyTaskAssignment({
-      assigneeId: updated.assigneeId,
+      assigneeId,
       actorId: user.userId,
       actorName: user.name,
       taskTitle: updated.title,

@@ -17,7 +17,7 @@ export default async function ReportsPage() {
       owner: { select: { id: true, name: true, email: true } },
       members: { include: { user: { select: { id: true, name: true, email: true } } } },
       tasks: {
-        include: { assignee: { select: { id: true, name: true } } },
+        include: { assignees: { select: { user: { select: { id: true, name: true } } } } },
         orderBy: { createdAt: "asc" }
       }
     },
@@ -25,11 +25,14 @@ export default async function ReportsPage() {
   });
 
   // Igual que en el tablero: un miembro común solo ve, dentro de cada
-  // proyecto, sus propias tareas asignadas; el dueño de ese proyecto y los
-  // administradores del sistema ven las de todos.
+  // proyecto, sus propias tareas asignadas (puede ser una de varias
+  // personas asignadas); el dueño de ese proyecto y los administradores del
+  // sistema ven las de todos.
   const data = projects.map((p) => {
     const canManage = canManageProjectTasks(p, user.userId, user.role);
-    const visibleTasks = canManage ? p.tasks : p.tasks.filter((t) => t.assigneeId === user.userId);
+    const visibleTasks = canManage
+      ? p.tasks
+      : p.tasks.filter((t) => t.assignees.some((a) => a.user.id === user.userId));
     return {
       id: p.id,
       name: p.name,
@@ -47,7 +50,7 @@ export default async function ReportsPage() {
         status: t.status,
         priority: t.priority,
         dueDate: t.dueDate ? t.dueDate.toISOString() : null,
-        assignee: t.assignee
+        assignees: t.assignees.map((a) => a.user)
       }))
     };
   });

@@ -56,8 +56,7 @@ export default async function GlobalProjectsPage() {
           priority: true,
           area: true,
           dueDate: true,
-          assigneeId: true,
-          assignee: { select: { id: true, name: true } },
+          assignees: { select: { user: { select: { id: true, name: true } } } },
           subtasks: { select: { done: true } }
         },
         orderBy: { dueDate: "asc" }
@@ -72,26 +71,33 @@ export default async function GlobalProjectsPage() {
     priority: keyof typeof PRIORITY_LABELS;
     area: keyof typeof AREA_LABELS | null;
     dueDate: Date | null;
-    assigneeId: string | null;
-    assignee: { id: string; name: string } | null;
+    assignees: { id: string; name: string }[];
     subtasks: { done: boolean }[];
     projectId: string;
     projectName: string;
   };
 
   // Un miembro común solo ve, dentro de cada proyecto, las tareas que tiene
-  // asignadas a él; el dueño de ese proyecto y los administradores del
-  // sistema ven todas las de ese proyecto.
+  // asignadas a él (puede ser una de varias personas asignadas); el dueño de
+  // ese proyecto y los administradores del sistema ven todas las de ese
+  // proyecto.
   const columns = new Map<TaskStatus, ColumnTask[]>();
   let totalTasks = 0;
   for (const project of projects) {
     const canManage = canManageProjectTasks(project, user.userId, user.role);
-    const visibleTasks = canManage ? project.tasks : project.tasks.filter((t) => t.assigneeId === user.userId);
+    const visibleTasks = canManage
+      ? project.tasks
+      : project.tasks.filter((t) => t.assignees.some((a) => a.user.id === user.userId));
     for (const t of visibleTasks) {
       totalTasks++;
       const status = t.status as TaskStatus;
       const list = columns.get(status) || [];
-      list.push({ ...t, projectId: project.id, projectName: project.name });
+      list.push({
+        ...t,
+        assignees: t.assignees.map((a) => a.user),
+        projectId: project.id,
+        projectName: project.name
+      });
       columns.set(status, list);
     }
   }
@@ -184,7 +190,11 @@ export default async function GlobalProjectsPage() {
                             {new Date(t.dueDate).toLocaleDateString("es-ES")}
                           </p>
                         )}
-                        {t.assignee && <p className="mt-1 text-[11px] text-slate-400">{t.assignee.name}</p>}
+                        {t.assignees.length > 0 && (
+                          <p className="mt-1 truncate text-[11px] text-slate-400">
+                            {t.assignees.map((a) => a.name).join(", ")}
+                          </p>
+                        )}
                       </Link>
                     );
                   })}

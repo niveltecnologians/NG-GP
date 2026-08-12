@@ -6,15 +6,24 @@ import { notifyTaskAssignment } from "@/lib/notify";
 import { computeAutoPriority } from "@/lib/autoPriority";
 import type { TaskStatus } from "@/lib/types";
 
-function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
-  return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
+function serializeTask<
+  T extends {
+    dependsOn: { dependsOn: { id: string; title: string } }[];
+    assignees: { user: { id: string; name: string; email: string } }[];
+  }
+>(task: T) {
+  return {
+    ...task,
+    dependsOn: task.dependsOn.map((d) => d.dependsOn),
+    assignees: task.assignees.map((a) => a.user)
+  };
 }
 
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { title, description, projectId, assigneeId, priority, startDate, dueDate, status, area, phase, budget, dependsOnIds } =
+  const { title, description, projectId, assigneeIds, priority, startDate, dueDate, status, area, phase, budget, dependsOnIds } =
     await req.json();
   if (!title || !projectId) {
     return NextResponse.json({ error: "Título y proyecto son obligatorios" }, { status: 400 });
@@ -24,6 +33,14 @@ export async function POST(req: NextRequest) {
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
   const isMember = project.ownerId === user.userId || project.members.some((m) => m.userId === user.userId);
   if (!isMember) return NextResponse.json({ error: "No perteneces a este proyecto" }, { status: 403 });
+
+  // Solo se puede asignar a gente que sí pertenece al proyecto (dueño o
+  // miembro); cualquier otro id se ignora.
+  const validAssigneeIds: string[] = Array.isArray(assigneeIds)
+    ? assigneeIds.filter(
+        (id: string) => id === project.ownerId || project.members.some((m) => m.userId === id)
+      )
+    : [];
 
   // Si no viene un estado inicial, se usa la primera columna según el modo
   // de tablero del proyecto (Por hacer / Prospectos).
@@ -50,7 +67,6 @@ export async function POST(req: NextRequest) {
       title,
       description,
       projectId,
-      assigneeId: assigneeId || null,
       priority: autoPriority || priority || "MEDIUM",
       area: area || null,
       phase: phase || null,
@@ -61,14 +77,17 @@ export async function POST(req: NextRequest) {
       status: initialStatus,
       dependsOn: {
         create: validDependsOnIds.map((depId) => ({ dependsOnId: depId }))
+      },
+      assignees: {
+        create: validAssigneeIds.map((userId) => ({ userId }))
       }
     },
     include: TASK_FULL_INCLUDE
   });
 
-  if (task.assigneeId) {
+  for (const assigneeId of validAssigneeIds) {
     await notifyTaskAssignment({
-      assigneeId: task.assigneeId,
+      assigneeId,
       actorId: user.userId,
       actorName: user.name,
       taskTitle: task.title,

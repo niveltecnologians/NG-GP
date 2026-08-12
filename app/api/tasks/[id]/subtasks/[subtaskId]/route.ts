@@ -5,8 +5,17 @@ import { SUBTASK_LIST_SELECT, TASK_FULL_INCLUDE } from "@/lib/selects";
 import { BOARD_MODE_COLUMNS, BoardMode } from "@/lib/types";
 import { assertTaskAccess } from "@/lib/taskAccess";
 
-function serializeTask<T extends { dependsOn: { dependsOn: { id: string; title: string } }[] }>(task: T) {
-  return { ...task, dependsOn: task.dependsOn.map((d) => d.dependsOn) };
+function serializeTask<
+  T extends {
+    dependsOn: { dependsOn: { id: string; title: string } }[];
+    assignees: { user: { id: string; name: string; email: string } }[];
+  }
+>(task: T) {
+  return {
+    ...task,
+    dependsOn: task.dependsOn.map((d) => d.dependsOn),
+    assignees: task.assignees.map((a) => a.user)
+  };
 }
 
 // Marca/desmarca una subtarea, o le cambia el título. Si con este cambio

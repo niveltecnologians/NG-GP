@@ -10,7 +10,7 @@ type TaskRow = {
   status: TaskStatus;
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueDate: string | null;
-  assignee: { id: string; name: string } | null;
+  assignees: { id: string; name: string }[];
 };
 
 type MemberRow = { id: string; name: string; email: string };
@@ -125,7 +125,7 @@ function ProjectReport({
         t.title,
         STATUS_LABELS[t.status],
         PRIORITY_LABELS[t.priority],
-        t.assignee ? t.assignee.name : "Sin asignar",
+        t.assignees.length > 0 ? t.assignees.map((a) => a.name).join(", ") : "Sin asignar",
         t.dueDate ? new Date(t.dueDate).toLocaleDateString("es-ES") : ""
       ])
     );
@@ -200,7 +200,9 @@ function ProjectReport({
                   <td className="px-4 py-2.5">{t.title}</td>
                   <td className="px-4 py-2.5">{STATUS_LABELS[t.status]}</td>
                   <td className="px-4 py-2.5">{PRIORITY_LABELS[t.priority]}</td>
-                  <td className="px-4 py-2.5">{t.assignee ? t.assignee.name : "Sin asignar"}</td>
+                  <td className="px-4 py-2.5">
+                    {t.assignees.length > 0 ? t.assignees.map((a) => a.name).join(", ") : "Sin asignar"}
+                  </td>
                   <DueCell dueDate={t.dueDate} status={t.status} />
                 </tr>
               ))
@@ -232,11 +234,13 @@ function ProfessionalReport({
   // Proyectos donde esta persona es miembro (o dueño), o tiene al menos una
   // tarea asignada (por si ya no figura como miembro pero le quedó algo).
   const myProjects = projects.filter(
-    (p) => p.members.some((m) => m.id === professional.id) || p.tasks.some((t) => t.assignee?.id === professional.id)
+    (p) =>
+      p.members.some((m) => m.id === professional.id) ||
+      p.tasks.some((t) => t.assignees.some((a) => a.id === professional.id))
   );
 
   const perProject = myProjects.map((p) => {
-    const myTasks = p.tasks.filter((t) => t.assignee?.id === professional.id);
+    const myTasks = p.tasks.filter((t) => t.assignees.some((a) => a.id === professional.id));
     const doneStatus = BOARD_MODE_COLUMNS[p.boardMode || "TASKS"].slice(-1)[0];
     const done = myTasks.filter((t) => t.status === doneStatus).length;
     return { project: p, myTasks, done };

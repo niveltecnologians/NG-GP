@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { ATTACHMENT_LIST_SELECT } from "@/lib/selects";
+import { ATTACHMENT_LIST_SELECT, TASK_ASSIGNEES_SELECT } from "@/lib/selects";
 
 async function assertMember(projectId: string, userId: string) {
   const project = await prisma.project.findUnique({
@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       members: { include: { user: { select: { id: true, name: true, email: true } } } },
       tasks: {
         include: {
-          assignee: { select: { id: true, name: true, email: true } },
+          assignees: { select: TASK_ASSIGNEES_SELECT },
           createdBy: { select: { id: true, name: true, email: true } },
           attachments: { select: ATTACHMENT_LIST_SELECT }
         },
@@ -36,7 +36,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }
   });
 
-  return NextResponse.json(full);
+  const serialized = full && {
+    ...full,
+    tasks: full.tasks.map((t) => ({ ...t, assignees: t.assignees.map((a) => a.user) }))
+  };
+
+  return NextResponse.json(serialized);
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

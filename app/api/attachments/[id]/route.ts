@@ -10,7 +10,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const attachment = await prisma.attachment.findUnique({
     where: { id: params.id },
-    include: { task: { include: { project: { include: { members: true } } } } }
+    include: { task: { include: { project: { include: { members: true } }, assignees: true } } }
   });
   if (!attachment) return NextResponse.json({ error: "Archivo no encontrado" }, { status: 404 });
 
@@ -18,7 +18,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     attachment.task.project.ownerId === user.userId ||
     attachment.task.project.members.some((m) => m.userId === user.userId);
   const canManage = canManageProjectTasks(attachment.task.project, user.userId, user.role);
-  if (!isMember || (!canManage && attachment.task.assigneeId !== user.userId)) {
+  const isAssignee = attachment.task.assignees.some((a) => a.userId === user.userId);
+  if (!isMember || (!canManage && !isAssignee)) {
     return NextResponse.json({ error: "No tienes acceso a este archivo" }, { status: 403 });
   }
 

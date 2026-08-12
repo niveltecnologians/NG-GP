@@ -37,9 +37,12 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   const isOwner = project.ownerId === user.userId;
   const canManage = isOwner || user.role === "ADMIN";
 
-  // Un miembro común solo ve las tareas que tiene asignadas a él; el dueño
-  // del proyecto y los administradores del sistema ven todas.
-  const visibleTasks = canManage ? project.tasks : project.tasks.filter((t) => t.assigneeId === user.userId);
+  // Un miembro común solo ve las tareas que tiene asignadas a él (puede ser
+  // una de varias personas asignadas); el dueño del proyecto y los
+  // administradores del sistema ven todas.
+  const visibleTasks = canManage
+    ? project.tasks
+    : project.tasks.filter((t) => t.assignees.some((a) => a.user.id === user.userId));
 
   const serialized = {
     ...project,
@@ -54,7 +57,8 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         checklist: s.checklist.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() }))
       })),
       checklist: t.checklist.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() })),
-      dependsOn: t.dependsOn.map((d) => d.dependsOn)
+      dependsOn: t.dependsOn.map((d) => d.dependsOn),
+      assignees: t.assignees.map((a) => a.user)
     }))
   };
 
