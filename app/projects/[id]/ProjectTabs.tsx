@@ -5,21 +5,25 @@ import { ProjectDetail, Task, BOARD_MODE_COLUMNS } from "@/lib/types";
 import KanbanBoard from "@/components/KanbanBoard";
 import GanttChart from "@/components/GanttChart";
 import BudgetTab from "@/components/BudgetTab";
+import ReportsTab from "@/components/ReportsTab";
 
-type View = "board" | "gantt" | "budget";
+type View = "board" | "gantt" | "budget" | "reports";
 
 const TABS: { key: View; label: string }[] = [
   { key: "board", label: "Tablero" },
   { key: "gantt", label: "Cronograma" },
-  { key: "budget", label: "Presupuesto" }
+  { key: "budget", label: "Presupuesto" },
+  { key: "reports", label: "Informes de obra" }
 ];
 
 export default function ProjectTabs({
   project,
-  currentUserId
+  currentUserId,
+  canManage = false
 }: {
   project: ProjectDetail;
   currentUserId: string;
+  canManage?: boolean;
 }) {
   const [view, setView] = useState<View>("board");
   const [tasks, setTasks] = useState<Task[]>(project.tasks);
@@ -56,6 +60,7 @@ export default function ProjectTabs({
         />
       )}
       {view === "budget" && <BudgetTab projectId={project.id} tasks={tasks} setTasks={setTasks} />}
+      {view === "reports" && <ReportsTab projectId={project.id} canManage={canManage} />}
     </div>
   );
 }

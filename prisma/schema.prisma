@@ -96,6 +96,14 @@ enum EventStatus {
   DECLINED
 }
 
+// Estado de un informe de avance de obra. Mientras está en BORRADOR solo lo
+// ve el equipo dentro de la plataforma; al publicarlo aparece de una vez en
+// el portal del cliente.
+enum ReportStatus {
+  DRAFT
+  PUBLISHED
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -138,6 +146,9 @@ model User {
   calendarEventsCreated CalendarEvent[]     @relation("CalendarCreator")
 
   taskComments         TaskComment[]
+
+  clientAccessesCreated ClientAccess[]   @relation("ClientAccessCreator")
+  reportsAuthored       ProgressReport[] @relation("ReportAuthor")
 }
 
 model InviteCode {
@@ -164,6 +175,13 @@ model Project {
   owner       User             @relation("ProjectOwner", fields: [ownerId], references: [id])
   members     ProjectMember[]
   tasks       Task[]
+
+  // Portal del cliente: accesos por enlace, informes de avance con su
+  // registro fotográfico, y el presupuesto que se le muestra al cliente.
+  clientAccesses ClientAccess[]
+  reports        ProgressReport[]
+  budgetItems    ClientBudgetItem[]
+
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 }
@@ -506,4 +524,124 @@ model CalendarEvent {
   @@index([userId])
   @@index([startsAt])
   @@index([groupId])
+}
+
+// ---------------------------------------------------------------------------
+// PORTAL DEL CLIENTE
+// ---------------------------------------------------------------------------
+// El cliente no es un usuario del sistema: no entra por /login ni ve el
+// tablero, el chat ni nada del equipo. Se le crea un "acceso" por proyecto,
+// que genera un enlace largo e irrepetible (/portal/<token>) que se le manda
+// por WhatsApp o correo. Opcionalmente se le pone un PIN para que el enlace
+// solo no baste. Así no hay que tocar el modelo User ni el inicio de sesión.
+
+model ClientAccess {
+  id          String    @id @default(cuid())
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Nombre con el que se saluda al cliente en el portal ("Familia Restrepo",
+  // "Constructora Amatiel"). El correo es solo de referencia para el equipo.
+  name        String
+  email       String?
+
+  // Token del enlace. Es la llave de entrada, por eso es largo y aleatorio.
+  token       String    @unique
+
+  // PIN opcional (guardado con hash, igual que las contraseñas). Si está en
+  // null, el enlace por sí solo abre el portal.
+  pinHash     String?
+
+  active      Boolean   @default(true)
+
+  // Si está apagado, el cliente ve avances y fotos pero no el presupuesto.
+  // Arranca apagado a propósito: la plata se muestra solo si uno lo decide.
+  showBudget  Boolean   @default(false)
+
+  lastVisitAt DateTime?
+
+  createdById String?
+  createdBy   User?     @relation("ClientAccessCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+}
+
+// Informe del día: el texto que uno escribe o pega ("Hoy se desarrolló el
+// contrato de tubería..."), el porcentaje de avance y las fotos de ese día.
+// Todos los informes publicados de un proyecto arman, en orden, el informe
+// general que ve el cliente.
+model ProgressReport {
+  id         String       @id @default(cuid())
+
+  projectId  String
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title      String
+  body       String
+  reportDate DateTime     @default(now())
+
+  // Avance acumulado de la obra a esa fecha, de 0 a 100. Es opcional: si no
+  // se pone, el informe solo suma texto y fotos.
+  progress   Int?
+
+  status     ReportStatus @default(PUBLISHED)
+
+  authorId   String?
+  author     User?        @relation("ReportAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  photos     ProgressPhoto[]
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([projectId, reportDate])
+}
+
+// Cada foto del registro fotográfico. Igual que los adjuntos de las tareas,
+// el archivo vive en Vercel Blob y aquí queda solo la URL, para poder subir
+// varias fotos pesadas de una vez sin chocar con el límite de tamaño de las
+// funciones serverless.
+model ProgressPhoto {
+  id        String         @id @default(cuid())
+
+  reportId  String
+  report    ProgressReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  url       String
+  filename  String
+  caption   String?
+  order     Int            @default(0)
+
+  createdAt DateTime       @default(now())
+
+  @@index([reportId])
+}
+
+// Presupuesto que se le muestra al cliente en su portal. Es aparte del
+// presupuesto interno por tarea (Task.budget): acá van los capítulos como
+// uno se los quiere presentar al cliente. Si el proyecto no tiene ninguna
+// fila de estas, el portal simplemente no muestra la pestaña.
+model ClientBudgetItem {
+  id        String   @id @default(cuid())
+
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  concept   String
+  amount    Float    @default(0)
+
+  // Cuánto de ese capítulo ya se ejecutó/facturó, para mostrar el avance
+  // económico al lado del avance físico.
+  executed  Float    @default(0)
+
+  order     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
 }

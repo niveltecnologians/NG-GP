@@ -5,6 +5,7 @@ import ProjectTabs from "./ProjectTabs";
 import AddMemberForm from "./AddMemberForm";
 import EditProjectForm from "./EditProjectForm";
 import ProjectMembersList from "./ProjectMembersList";
+import ClientPortalManager from "@/components/ClientPortalManager";
 import { TASK_FULL_INCLUDE } from "@/lib/selects";
 import { recalculateTaskPriorities } from "@/lib/autoPriority";
 
@@ -96,11 +97,12 @@ export default async function ProjectPage({ params }: { params: { id: string } }
               projectId={project.id}
               existingMemberIds={project.members.map((m) => m.userId)}
             />
+            <ClientPortalManager projectId={project.id} projectName={project.name} />
           </div>
         )}
       </div>
 
-      <ProjectTabs project={serialized} currentUserId={user.userId} />
+      <ProjectTabs project={serialized} currentUserId={user.userId} canManage={canManage} />
     </div>
   );
 }
