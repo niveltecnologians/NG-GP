@@ -16,7 +16,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const isMember =
     attachment.task.project.ownerId === user.userId ||
-    attachment.task.project.members.some((m) => m.userId === user.userId);
+    attachment.task.project.members.some((m) => m.userId === user.userId) ||
+    user.role === "GERENTE";
   const canManage = canManageProjectTasks(attachment.task.project, user.userId, user.role);
   const isAssignee = attachment.task.assignees.some((a) => a.userId === user.userId);
   if (!isMember || (!canManage && !isAssignee)) {
@@ -55,7 +56,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const canDelete =
     attachment.uploadedById === user.userId ||
     attachment.task.project.ownerId === user.userId ||
-    user.role === "ADMIN";
+    user.role === "ADMIN" ||
+    user.role === "GERENTE";
   if (!canDelete) {
     return NextResponse.json(
       { error: "Solo quien subió el archivo, el dueño del proyecto o un administrador pueden eliminarlo" },
