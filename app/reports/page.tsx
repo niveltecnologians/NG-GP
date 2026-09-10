@@ -7,12 +7,19 @@ import ReportsView from "./ReportsView";
 export default async function ReportsPage() {
   const user = await requireUser();
 
+  // El gerente ve todas las obras del sistema, sin necesidad de ser dueño
+  // ni miembro de cada una.
+  const projectWhere =
+    user.role === "GERENTE"
+      ? {}
+      : { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] };
+
   await recalculateTaskPriorities({
-    project: { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] }
+    project: projectWhere
   });
 
   const projects = await prisma.project.findMany({
-    where: { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] },
+    where: projectWhere,
     include: {
       owner: { select: { id: true, name: true, email: true } },
       members: { include: { user: { select: { id: true, name: true, email: true } } } },
@@ -25,14 +32,18 @@ export default async function ReportsPage() {
   });
 
   // Igual que en el tablero: un miembro común solo ve, dentro de cada
-  // proyecto, sus propias tareas asignadas (puede ser una de varias
-  // personas asignadas); el dueño de ese proyecto y los administradores del
-  // sistema ven las de todos.
+  // proyecto, las tareas de su área (si tiene una y la tarea también la
+  // tiene) o si no las que tiene asignadas; el dueño de ese proyecto, los
+  // administradores y el gerente ven las de todos.
   const data = projects.map((p) => {
     const canManage = canManageProjectTasks(p, user.userId, user.role);
     const visibleTasks = canManage
       ? p.tasks
-      : p.tasks.filter((t) => t.assignees.some((a) => a.user.id === user.userId));
+      : p.tasks.filter((t) =>
+          user.area && t.area
+            ? t.area === user.area
+            : t.assignees.some((a) => a.user.id === user.userId)
+        );
     return {
       id: p.id,
       name: p.name,
