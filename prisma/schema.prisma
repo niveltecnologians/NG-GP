@@ -27,6 +27,9 @@ model AppSettings {
 enum Role {
   ADMIN
   MEMBER
+  // Ve los gastos de todos los proyectos (para causarlos en la
+  // contabilidad), pero no entra a los tableros ni a las tareas.
+  CONTABILIDAD
 }
 
 enum TaskStatus {
@@ -150,6 +153,7 @@ model User {
   clientAccessesCreated ClientAccess[]   @relation("ClientAccessCreator")
   reportsAuthored       ProgressReport[] @relation("ReportAuthor")
   expensesCreated       Expense[]        @relation("ExpenseCreator")
+  expenseComments       ExpenseComment[]
 }
 
 model InviteCode {
@@ -664,6 +668,15 @@ enum ExpenseType {
   OTRO
 }
 
+// Estado contable de un gasto: lo maneja el usuario de Contabilidad, que
+// ve los gastos de todos los proyectos, para saber si ya lo causó
+// (registró) en la contabilidad, si no, o si sigue pendiente de revisar.
+enum ExpenseAccountingStatus {
+  PENDIENTE
+  CAUSADO
+  NO_CAUSADO
+}
+
 // Gasto real del día a día de la obra (mano de obra, materiales, etc.),
 // con su comprobante adjunto. Es aparte del presupuesto (ClientBudgetItem/
 // Task.budget), que es lo planeado o cotizado: esto es lo que realmente
@@ -680,11 +693,20 @@ model Expense {
   type        ExpenseType @default(OTRO)
   notes       String?
 
+  // Datos del comprobante que se piden al registrar el gasto.
+  providerName  String?
+  invoiceNumber String?
+
   // Comprobante adjunto (factura o cuenta de cobro). Mismo patrón que
   // Attachment/ProgressPhoto: vive en Vercel Blob, aquí solo queda la URL.
   fileUrl      String?
   fileName     String?
   fileMimeType String?
+
+  // Estado contable: lo pone Contabilidad (o un administrador), no quien
+  // registra el gasto.
+  accountingStatus ExpenseAccountingStatus @default(PENDIENTE)
+  comments         ExpenseComment[]
 
   createdById String?
   createdBy   User?       @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -694,4 +716,23 @@ model Expense {
 
   @@index([projectId])
   @@index([projectId, date])
+}
+
+// Ida y vuelta entre Contabilidad y el encargado de la obra sobre un gasto
+// puntual (ej: "falta el número de factura", "ya la subo"). Mismo patrón
+// que TaskComment: no se edita ni se borra, queda como historial junto al
+// gasto.
+model ExpenseComment {
+  id        String   @id @default(cuid())
+  content   String
+
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([expenseId])
 }
