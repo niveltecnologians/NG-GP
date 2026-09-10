@@ -6,8 +6,16 @@ import NewProjectForm from "./NewProjectForm";
 export default async function DashboardPage() {
   const user = await requireUser();
 
+  // El gerente ve todas las obras del sistema, sin necesidad de ser dueño
+  // ni miembro de cada una (igual que el administrador en las páginas de
+  // cada proyecto).
+  const projectWhere =
+    user.role === "GERENTE"
+      ? {}
+      : { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] };
+
   const projects = await prisma.project.findMany({
-    where: { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] },
+    where: projectWhere,
     include: { _count: { select: { tasks: true } }, members: true, owner: true },
     orderBy: { createdAt: "desc" }
   });
