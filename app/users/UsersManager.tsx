@@ -1,9 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Role, ROLE_LABELS } from "@/lib/types";
+import { Role, ROLE_LABELS, TaskArea, AREA_LABELS } from "@/lib/types";
 
-type UserRow = { id: string; name: string; email: string; role: Role; createdAt: string };
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  area: TaskArea | null;
+  createdAt: string;
+};
 
 export default function UsersManager({
   initialUsers,
@@ -18,6 +25,7 @@ export default function UsersManager({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("MEMBER");
+  const [area, setArea] = useState<TaskArea | "">("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -26,6 +34,7 @@ export default function UsersManager({
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editRole, setEditRole] = useState<Role>("MEMBER");
+  const [editArea, setEditArea] = useState<TaskArea | "">("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
 
@@ -36,7 +45,7 @@ export default function UsersManager({
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, role })
+      body: JSON.stringify({ name, email, password, role, area: role === "MEMBER" ? area || null : null })
     });
     setLoading(false);
     if (!res.ok) {
@@ -51,6 +60,7 @@ export default function UsersManager({
     setEmail("");
     setPassword("");
     setRole("MEMBER");
+    setArea("");
   }
 
   async function handleDelete(user: UserRow) {
@@ -71,6 +81,7 @@ export default function UsersManager({
     setEditEmail(user.email);
     setEditPassword("");
     setEditRole(user.role);
+    setEditArea(user.area || "");
     setEditError(null);
   }
 
@@ -86,7 +97,8 @@ export default function UsersManager({
         name: editName,
         email: editEmail,
         password: editPassword || undefined,
-        role: editRole
+        role: editRole,
+        area: editRole === "MEMBER" ? editArea || null : null
       })
     });
     setEditLoading(false);
@@ -115,6 +127,7 @@ export default function UsersManager({
               <th className="px-4 py-2.5 font-medium">Nombre</th>
               <th className="px-4 py-2.5 font-medium">Email</th>
               <th className="px-4 py-2.5 font-medium">Rol</th>
+              <th className="px-4 py-2.5 font-medium">Área</th>
               <th className="px-4 py-2.5 font-medium">Creado</th>
               <th className="px-4 py-2.5"></th>
             </tr>
@@ -125,6 +138,7 @@ export default function UsersManager({
                 <td className="px-4 py-2.5">{u.name}</td>
                 <td className="px-4 py-2.5">{u.email}</td>
                 <td className="px-4 py-2.5">{ROLE_LABELS[u.role]}</td>
+                <td className="px-4 py-2.5">{u.area ? AREA_LABELS[u.area] : "—"}</td>
                 <td className="px-4 py-2.5 text-xs text-slate-400">
                   {new Date(u.createdAt).toLocaleDateString("es-ES")}
                 </td>
@@ -170,8 +184,20 @@ export default function UsersManager({
                 <option value="MEMBER">Miembro</option>
                 <option value="ADMIN">Administrador</option>
                 <option value="CONTABILIDAD">Contabilidad</option>
+                <option value="GERENTE">Gerente</option>
               </select>
             </div>
+            {role === "MEMBER" && (
+              <div>
+                <label className="mb-1 block text-sm font-medium">Área</label>
+                <select className="input" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
+                  <option value="">Sin área</option>
+                  {Object.entries(AREA_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
               <button type="submit" disabled={loading} className="btn">{loading ? "Creando..." : "Crear"}</button>
@@ -215,11 +241,27 @@ export default function UsersManager({
                 <option value="MEMBER">Miembro</option>
                 <option value="ADMIN">Administrador</option>
                 <option value="CONTABILIDAD">Contabilidad</option>
+                <option value="GERENTE">Gerente</option>
               </select>
               {editingUser.id === currentUserId && (
                 <p className="mt-1 text-xs text-slate-400">No puedes cambiar tu propio rol.</p>
               )}
             </div>
+            {editRole === "MEMBER" && (
+              <div>
+                <label className="mb-1 block text-sm font-medium">Área</label>
+                <select
+                  className="input"
+                  value={editArea}
+                  onChange={(e) => setEditArea(e.target.value as TaskArea | "")}
+                >
+                  <option value="">Sin área</option>
+                  {Object.entries(AREA_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
               <button type="submit" disabled={editLoading} className="btn">{editLoading ? "Guardando..." : "Guardar cambios"}</button>
