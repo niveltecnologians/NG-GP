@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { SessionPayload } from "@/lib/auth";
+import { ROLE_LABELS } from "@/lib/types";
 import InstallAppButton from "@/components/InstallAppButton";
 
 export default function Navbar({
@@ -120,6 +121,9 @@ export default function Navbar({
     { href: "/chat", label: "Chat", badge: chatUnread },
     { href: "/calendar", label: "Calendario", badge: calendarPending },
     { href: "/reports", label: "Informes", badge: 0 },
+    ...(user.role === "ADMIN" || user.role === "CONTABILIDAD"
+      ? [{ href: "/contabilidad", label: "Contabilidad", badge: 0 }]
+      : []),
     ...(user.role === "ADMIN"
       ? [
           { href: "/users", label: "Usuarios", badge: 0 },
@@ -219,7 +223,7 @@ export default function Navbar({
             )}
             <div className="text-sm leading-tight">
               <div className="font-medium text-slate-900">{user.name}</div>
-              <div className="text-xs text-slate-400">{user.role === "ADMIN" ? "Administrador" : "Miembro"}</div>
+              <div className="text-xs text-slate-400">{ROLE_LABELS[user.role]}</div>
             </div>
           </Link>
           <button onClick={handleLogout} className="btn-secondary py-1.5">
@@ -279,7 +283,7 @@ export default function Navbar({
               )}
               <div className="text-sm leading-tight">
                 <div className="font-medium text-slate-900">{user.name}</div>
-                <div className="text-xs text-slate-400">{user.role === "ADMIN" ? "Administrador" : "Miembro"}</div>
+                <div className="text-xs text-slate-400">{ROLE_LABELS[user.role]}</div>
               </div>
             </Link>
             <InstallAppButton expanded />
