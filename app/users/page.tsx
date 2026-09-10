@@ -15,7 +15,7 @@ export default async function UsersPage() {
   }
 
   const rows = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, area: true, createdAt: true },
     orderBy: { createdAt: "asc" }
   });
   const users = rows.map((u) => ({ ...u, createdAt: u.createdAt.toISOString() }));
