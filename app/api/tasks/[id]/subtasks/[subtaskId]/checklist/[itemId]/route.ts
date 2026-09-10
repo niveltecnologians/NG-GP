@@ -8,7 +8,7 @@ async function assertAccess(
   taskId: string,
   subtaskId: string,
   userId: string,
-  userRole: "ADMIN" | "MEMBER" | "CONTABILIDAD"
+  userRole: "ADMIN" | "MEMBER" | "CONTABILIDAD" | "GERENTE"
 ) {
   const task = await assertTaskAccess(taskId, userId, userRole);
   if (!task) return null;
