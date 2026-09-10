@@ -35,7 +35,12 @@ const COLUMN_ORDER: TaskStatus[] = [
 export default async function GlobalProjectsPage() {
   const user = await requireUser();
 
-  const projectWhere = { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] };
+  // El gerente ve todas las obras del sistema, sin necesidad de ser dueño
+  // ni miembro de cada una.
+  const projectWhere =
+    user.role === "GERENTE"
+      ? {}
+      : { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] };
 
   // Pone al día la prioridad automática de todas estas tareas antes de
   // mostrarlas, por si cambió cuánto falta para alguna fecha límite.
@@ -77,17 +82,21 @@ export default async function GlobalProjectsPage() {
     projectName: string;
   };
 
-  // Un miembro común solo ve, dentro de cada proyecto, las tareas que tiene
-  // asignadas a él (puede ser una de varias personas asignadas); el dueño de
-  // ese proyecto y los administradores del sistema ven todas las de ese
-  // proyecto.
+  // Un miembro con un área asignada ve, dentro de cada proyecto, las
+  // tareas de esa área; si no tiene área (o la tarea no tiene), ve solo
+  // las que tiene asignadas a él (como antes). El dueño de ese proyecto,
+  // los administradores y el gerente ven todas las de ese proyecto.
   const columns = new Map<TaskStatus, ColumnTask[]>();
   let totalTasks = 0;
   for (const project of projects) {
     const canManage = canManageProjectTasks(project, user.userId, user.role);
     const visibleTasks = canManage
       ? project.tasks
-      : project.tasks.filter((t) => t.assignees.some((a) => a.user.id === user.userId));
+      : project.tasks.filter((t) =>
+          user.area && t.area
+            ? t.area === user.area
+            : t.assignees.some((a) => a.user.id === user.userId)
+        );
     for (const t of visibleTasks) {
       totalTasks++;
       const status = t.status as TaskStatus;
