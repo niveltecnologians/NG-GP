@@ -9,6 +9,7 @@ type ClientAccess = {
   token: string;
   active: boolean;
   showBudget: boolean;
+  showSchedule: boolean;
   hasPin: boolean;
   lastVisitAt: string | null;
   createdAt: string;
@@ -41,6 +42,7 @@ export default function ClientPortalManager({
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [showBudget, setShowBudget] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
   const [creating, setCreating] = useState(false);
 
   // Presupuesto del cliente
@@ -95,7 +97,7 @@ export default function ClientPortalManager({
     const res = await fetch(`/api/projects/${projectId}/client-access`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email: email || null, pin: pin || null, showBudget })
+      body: JSON.stringify({ name, email: email || null, pin: pin || null, showBudget, showSchedule })
     });
 
     setCreating(false);
@@ -111,6 +113,7 @@ export default function ClientPortalManager({
     setEmail("");
     setPin("");
     setShowBudget(false);
+    setShowSchedule(false);
   }
 
   async function patchAccess(accessId: string, payload: Record<string, unknown>) {
@@ -273,8 +276,8 @@ export default function ClientPortalManager({
                     Si lo dejas vacío, con el enlace basta para entrar.
                   </p>
                 </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">
+                <div className="flex flex-col justify-end gap-1 pb-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-600">
                     <input
                       type="checkbox"
                       checked={showBudget}
@@ -282,6 +285,15 @@ export default function ClientPortalManager({
                       className="rounded border-slate-300"
                     />
                     Mostrarle el presupuesto
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={showSchedule}
+                      onChange={(e) => setShowSchedule(e.target.checked)}
+                      className="rounded border-slate-300"
+                    />
+                    Mostrarle el cronograma
                   </label>
                 </div>
               </div>
@@ -344,6 +356,15 @@ export default function ClientPortalManager({
                           className="rounded border-slate-300"
                         />
                         Ver presupuesto
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={access.showSchedule}
+                          onChange={(e) => patchAccess(access.id, { showSchedule: e.target.checked })}
+                          className="rounded border-slate-300"
+                        />
+                        Ver cronograma
                       </label>
                       <label className="flex items-center gap-2 text-slate-600">
                         <input
