@@ -3,13 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { ATTACHMENT_LIST_SELECT, TASK_ASSIGNEES_SELECT } from "@/lib/selects";
 
-async function assertMember(projectId: string, userId: string) {
+async function assertMember(projectId: string, userId: string, userRole: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: { members: true }
   });
   if (!project) return null;
-  const isMember = project.ownerId === userId || project.members.some((m) => m.userId === userId);
+  const isMember =
+    project.ownerId === userId ||
+    project.members.some((m) => m.userId === userId) ||
+    userRole === "GERENTE";
   return isMember ? project : null;
 }
 
@@ -17,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const project = await assertMember(params.id, user.userId);
+  const project = await assertMember(params.id, user.userId, user.role);
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
 
   const full = await prisma.project.findUnique({
@@ -48,9 +51,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const project = await assertMember(params.id, user.userId);
+  const project = await assertMember(params.id, user.userId, user.role);
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-  if (project.ownerId !== user.userId && user.role !== "ADMIN") {
+  if (project.ownerId !== user.userId && user.role !== "ADMIN" && user.role !== "GERENTE") {
     return NextResponse.json({ error: "Solo el dueño o un administrador pueden editar el proyecto" }, { status: 403 });
   }
 
@@ -68,7 +71,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
 
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-  if (project.ownerId !== user.userId && user.role !== "ADMIN") {
+  if (project.ownerId !== user.userId && user.role !== "ADMIN" && user.role !== "GERENTE") {
     return NextResponse.json({ error: "Solo el dueño o un administrador pueden eliminar el proyecto" }, { status: 403 });
   }
 
