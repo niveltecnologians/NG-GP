@@ -15,6 +15,8 @@ type PortalReport = {
 
 type BudgetItem = { id: string; concept: string; amount: number; executed: number };
 
+type ScheduleTask = { id: string; title: string; startDate: string | null; dueDate: string | null; progress: number };
+
 const money = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -30,7 +32,15 @@ function formatDate(iso: string) {
   });
 }
 
-type View = "avance" | "fotos" | "presupuesto";
+function formatShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "short",
+    timeZone: "America/Bogota"
+  });
+}
+
+type View = "avance" | "fotos" | "cronograma" | "presupuesto";
 
 export default function PortalView({
   clientName,
@@ -38,7 +48,9 @@ export default function PortalView({
   projectDescription,
   reports,
   budgetItems,
-  showBudget
+  showBudget,
+  scheduleTasks,
+  showSchedule
 }: {
   clientName: string;
   projectName: string;
@@ -46,6 +58,8 @@ export default function PortalView({
   reports: PortalReport[];
   budgetItems: BudgetItem[];
   showBudget: boolean;
+  scheduleTasks: ScheduleTask[];
+  showSchedule: boolean;
 }) {
   const [view, setView] = useState<View>("avance");
   const [lightbox, setLightbox] = useState<PortalPhoto | null>(null);
@@ -74,6 +88,7 @@ export default function PortalView({
   const tabs: { key: View; label: string }[] = [
     { key: "avance", label: "Avance de obra" },
     { key: "fotos", label: `Registro fotográfico${allPhotos.length ? ` (${allPhotos.length})` : ""}` },
+    ...(showSchedule ? [{ key: "cronograma" as View, label: "Cronograma" }] : []),
     ...(showBudget ? [{ key: "presupuesto" as View, label: "Presupuesto" }] : [])
   ];
 
@@ -199,6 +214,36 @@ export default function PortalView({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {view === "cronograma" && showSchedule && (
+        <div className="card p-5">
+          <p className="mb-4 text-sm text-slate-500">
+            Actividades planeadas para tu proyecto, en orden de fecha. El porcentaje se actualiza a medida
+            que el equipo va marcando cada actividad como terminada.
+          </p>
+          <div className="space-y-4">
+            {scheduleTasks.map((task) => (
+              <div key={task.id} className="border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="font-medium text-slate-800">{task.title}</p>
+                  <span className="text-xs text-slate-400">
+                    {task.startDate ? formatShortDate(task.startDate) : "—"}
+                    {task.dueDate && task.dueDate !== task.startDate ? ` – ${formatShortDate(task.dueDate)}` : ""}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      task.progress >= 100 ? "bg-emerald-500" : "bg-brand-500"
+                    }`}
+                    style={{ width: `${task.progress}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
