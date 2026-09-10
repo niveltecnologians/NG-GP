@@ -3,6 +3,8 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
+const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD"];
+
 function generateCode() {
   // Código legible tipo AB12-CD34
   const raw = randomBytes(4).toString("hex").toUpperCase(); // 8 caracteres
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const role = body?.role === "ADMIN" ? "ADMIN" : "MEMBER";
+  const role = VALID_ROLES.includes(body?.role) ? body.role : "MEMBER";
 
   let code = generateCode();
   // Muy improbable que choque, pero por si acaso reintenta.
