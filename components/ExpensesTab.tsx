@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { safeBlobPathname } from "@/lib/blobPath";
-
-type ExpenseType = "FACTURA" | "CUENTA_DE_COBRO" | "OTRO";
+import {
+  ExpenseType,
+  ExpenseAccountingStatus,
+  ExpenseComment,
+  EXPENSE_TYPE_LABELS,
+  EXPENSE_ACCOUNTING_STATUS_LABELS,
+  EXPENSE_ACCOUNTING_STATUS_COLORS
+} from "@/lib/types";
 
 type Expense = {
   id: string;
@@ -13,9 +19,13 @@ type Expense = {
   date: string;
   type: ExpenseType;
   notes: string | null;
+  providerName: string | null;
+  invoiceNumber: string | null;
   fileUrl: string | null;
   fileName: string | null;
   fileMimeType: string | null;
+  accountingStatus: ExpenseAccountingStatus;
+  comments: ExpenseComment[];
   createdBy: { id: string; name: string } | null;
 };
 
@@ -24,12 +34,6 @@ const money = new Intl.NumberFormat("es-CO", {
   currency: "COP",
   maximumFractionDigits: 0
 });
-
-const TYPE_LABEL: Record<ExpenseType, string> = {
-  FACTURA: "Factura electrónica",
-  CUENTA_DE_COBRO: "Cuenta de cobro",
-  OTRO: "Otro comprobante"
-};
 
 function todayInput() {
   // Fecha de hoy en Colombia, en el formato que espera <input type="date">.
@@ -41,6 +45,16 @@ function formatDate(iso: string) {
     day: "numeric",
     month: "short",
     year: "numeric",
+    timeZone: "America/Bogota"
+  });
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString("es-CO", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
     timeZone: "America/Bogota"
   });
 }
@@ -61,6 +75,8 @@ export default function ExpensesTab({
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayInput());
   const [type, setType] = useState<ExpenseType>("OTRO");
+  const [providerName, setProviderName] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -69,6 +85,11 @@ export default function ExpensesTab({
   // Reemplazar el comprobante de un gasto ya creado
   const [replacingId, setReplacingId] = useState<string | null>(null);
   const replaceFileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Comentarios (la ida y vuelta con Contabilidad) por gasto
+  const [openCommentsId, setOpenCommentsId] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [postingComment, setPostingComment] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/expenses`)
@@ -114,6 +135,8 @@ export default function ExpensesTab({
         amount,
         date,
         type,
+        providerName,
+        invoiceNumber,
         notes,
         fileUrl: uploaded?.url,
         fileName: uploaded?.filename,
@@ -134,6 +157,8 @@ export default function ExpensesTab({
     setAmount("");
     setDate(todayInput());
     setType("OTRO");
+    setProviderName("");
+    setInvoiceNumber("");
     setNotes("");
     setFile(null);
     if (newFileInput.current) newFileInput.current.value = "";
@@ -172,6 +197,29 @@ export default function ExpensesTab({
     const res = await fetch(`/api/projects/${projectId}/expenses/${expenseId}`, { method: "DELETE" });
     if (!res.ok) return setError("No se pudo eliminar el gasto");
     setExpenses((prev) => prev.filter((x) => x.id !== expenseId));
+  }
+
+  async function handleAddComment(expenseId: string) {
+    const content = (commentDrafts[expenseId] || "").trim();
+    if (!content) return;
+    setPostingComment(expenseId);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/expenses/${expenseId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content })
+      });
+      if (!res.ok) throw new Error();
+      const comment: ExpenseComment = await res.json();
+      setExpenses((prev) =>
+        prev.map((x) => (x.id === expenseId ? { ...x, comments: [...x.comments, comment] } : x))
+      );
+      setCommentDrafts((prev) => ({ ...prev, [expenseId]: "" }));
+    } catch {
+      setError("No se pudo enviar el comentario");
+    } finally {
+      setPostingComment(null);
+    }
   }
 
   if (loading) return <p className="text-sm text-slate-400">Cargando gastos...</p>;
@@ -215,6 +263,28 @@ export default function ExpensesTab({
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 required
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium">Proveedor</label>
+              <input
+                className="input"
+                value={providerName}
+                onChange={(e) => setProviderName(e.target.value)}
+                placeholder="¿A quién le pagaste?"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium">N° de factura (opcional)</label>
+              <input
+                className="input"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="Si no tiene, déjalo vacío"
               />
             </div>
           </div>
@@ -283,72 +353,138 @@ export default function ExpensesTab({
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Concepto</th>
+                  <th className="px-4 py-3">Proveedor / concepto</th>
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3 text-right">Valor</th>
+                  <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3">Comprobante</th>
                   {canManage && <th className="px-4 py-3"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {expenses.map((expense) => (
-                  <tr key={expense.id}>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(expense.date)}</td>
-                    <td className="px-4 py-3 text-slate-700">
-                      {expense.concept}
-                      {expense.notes && <p className="mt-0.5 text-xs text-slate-400">{expense.notes}</p>}
-                      {expense.createdBy && (
-                        <p className="mt-0.5 text-xs text-slate-400">Registró: {expense.createdBy.name}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{TYPE_LABEL[expense.type]}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                      {money.format(expense.amount)}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {expense.fileUrl ? (
-                        <a
-                          href={expense.fileUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-brand-700 underline hover:text-brand-800"
-                        >
-                          Ver
-                        </a>
-                      ) : canManage ? (
-                        <>
-                          <input
-                            ref={(el) => {
-                              replaceFileInputs.current[expense.id] = el;
-                            }}
-                            type="file"
-                            accept="application/pdf,image/*"
-                            className="hidden"
-                            onChange={(e) => handleReplaceFile(expense.id, e)}
-                          />
-                          <button
-                            className="text-slate-500 underline hover:text-slate-700"
-                            disabled={replacingId === expense.id}
-                            onClick={() => replaceFileInputs.current[expense.id]?.click()}
-                          >
-                            {replacingId === expense.id ? "Subiendo..." : "+ Cargar"}
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-slate-400">Sin comprobante</span>
-                      )}
-                    </td>
-                    {canManage && (
-                      <td className="px-4 py-3 text-right">
+                  <Fragment key={expense.id}>
+                    <tr>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{formatDate(expense.date)}</td>
+                      <td className="px-4 py-3 text-slate-700">
+                        <p className="font-medium">{expense.providerName || "—"}</p>
+                        <p className="text-slate-600">{expense.concept}</p>
+                        {expense.invoiceNumber && (
+                          <p className="mt-0.5 text-xs text-slate-400">Factura N° {expense.invoiceNumber}</p>
+                        )}
+                        {expense.notes && <p className="mt-0.5 text-xs text-slate-400">{expense.notes}</p>}
+                        {expense.createdBy && (
+                          <p className="mt-0.5 text-xs text-slate-400">Registró: {expense.createdBy.name}</p>
+                        )}
                         <button
-                          className="text-red-600 underline hover:text-red-700"
-                          onClick={() => handleDelete(expense.id)}
+                          className="mt-1 text-xs text-brand-600 underline hover:text-brand-800"
+                          onClick={() => setOpenCommentsId(openCommentsId === expense.id ? null : expense.id)}
                         >
-                          Eliminar
+                          {expense.comments.length > 0
+                            ? `Comentarios (${expense.comments.length})`
+                            : "Comentarios"}
                         </button>
                       </td>
+                      <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                        {EXPENSE_TYPE_LABELS[expense.type]}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                        {money.format(expense.amount)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${EXPENSE_ACCOUNTING_STATUS_COLORS[expense.accountingStatus]}`}
+                        >
+                          {EXPENSE_ACCOUNTING_STATUS_LABELS[expense.accountingStatus]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {expense.fileUrl ? (
+                          <a
+                            href={expense.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-700 underline hover:text-brand-800"
+                          >
+                            Ver
+                          </a>
+                        ) : canManage ? (
+                          <>
+                            <input
+                              ref={(el) => {
+                                replaceFileInputs.current[expense.id] = el;
+                              }}
+                              type="file"
+                              accept="application/pdf,image/*"
+                              className="hidden"
+                              onChange={(e) => handleReplaceFile(expense.id, e)}
+                            />
+                            <button
+                              className="text-slate-500 underline hover:text-slate-700"
+                              disabled={replacingId === expense.id}
+                              onClick={() => replaceFileInputs.current[expense.id]?.click()}
+                            >
+                              {replacingId === expense.id ? "Subiendo..." : "+ Cargar"}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-slate-400">Sin comprobante</span>
+                        )}
+                      </td>
+                      {canManage && (
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            className="text-red-600 underline hover:text-red-700"
+                            onClick={() => handleDelete(expense.id)}
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                    {openCommentsId === expense.id && (
+                      <tr>
+                        <td colSpan={canManage ? 7 : 6} className="bg-slate-50 px-4 py-3">
+                          <div className="space-y-2">
+                            {expense.comments.length === 0 ? (
+                              <p className="text-xs text-slate-400">
+                                Todavía no hay comentarios en este gasto.
+                              </p>
+                            ) : (
+                              expense.comments.map((c) => (
+                                <div key={c.id} className="rounded-md bg-white px-3 py-2 text-sm shadow-sm">
+                                  <p className="text-slate-700">{c.content}</p>
+                                  <p className="mt-0.5 text-xs text-slate-400">
+                                    {c.author?.name || "—"} · {formatDateTime(c.createdAt)}
+                                  </p>
+                                </div>
+                              ))
+                            )}
+                            <div className="flex gap-2">
+                              <input
+                                className="input"
+                                placeholder="Escribe un comentario o pregunta..."
+                                value={commentDrafts[expense.id] || ""}
+                                onChange={(e) =>
+                                  setCommentDrafts((prev) => ({ ...prev, [expense.id]: e.target.value }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleAddComment(expense.id);
+                                }}
+                              />
+                              <button
+                                className="btn-secondary"
+                                disabled={postingComment === expense.id}
+                                onClick={() => handleAddComment(expense.id)}
+                              >
+                                {postingComment === expense.id ? "Enviando..." : "Enviar"}
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
               <tfoot className="bg-slate-50 font-semibold">
@@ -357,7 +493,7 @@ export default function ExpensesTab({
                     Total
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">{money.format(total)}</td>
-                  <td className="px-4 py-3" colSpan={canManage ? 2 : 1}></td>
+                  <td className="px-4 py-3" colSpan={canManage ? 3 : 2}></td>
                 </tr>
               </tfoot>
             </table>
@@ -367,4 +503,3 @@ export default function ExpensesTab({
     </div>
   );
 }
-
