@@ -48,7 +48,7 @@ export type TaskStatus =
   | "LIQUIDACION"
   | "POSVENTA";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-export type TaskArea = "CARPINTERIA" | "REDES" | "ARQUITECTURA";
+export type TaskArea = "CARPINTERIA" | "REDES" | "ARQUITECTURA" | "OBRA_CIVIL";
 
 // Fase del proceso de la actividad (independiente del estado del tablero):
 // en qué parte del proceso general de la obra está esa tarea puntual.
@@ -148,19 +148,22 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
 export const AREA_LABELS: Record<TaskArea, string> = {
   CARPINTERIA: "Carpintería",
   REDES: "Redes",
-  ARQUITECTURA: "Arquitectura"
+  ARQUITECTURA: "Arquitectura",
+  OBRA_CIVIL: "Obra Civil"
 };
 
 export const AREA_BADGE_COLORS: Record<TaskArea, string> = {
   CARPINTERIA: "bg-yellow-100 text-yellow-700",
   REDES: "bg-red-100 text-red-700",
-  ARQUITECTURA: "bg-blue-100 text-blue-700"
+  ARQUITECTURA: "bg-blue-100 text-blue-700",
+  OBRA_CIVIL: "bg-green-100 text-green-700"
 };
 
 export const AREA_BORDER_COLORS: Record<TaskArea, string> = {
   CARPINTERIA: "border-l-yellow-400",
   REDES: "border-l-red-400",
-  ARQUITECTURA: "border-l-blue-400"
+  ARQUITECTURA: "border-l-blue-400",
+  OBRA_CIVIL: "border-l-green-400"
 };
 
 // Fase de la actividad dentro del proceso general (independiente del
@@ -196,12 +199,17 @@ export type GlobalTask = Task & {
 
 // Rol de usuario del sistema. CONTABILIDAD ve los gastos de todos los
 // proyectos (para causarlos) pero no entra a los tableros ni tareas.
-export type Role = "ADMIN" | "MEMBER" | "CONTABILIDAD";
+// GERENTE ve y edita todas las tareas de todas las obras, sin necesidad de
+// ser miembro de cada proyecto (igual que ADMIN, pero pensado para quien
+// supervisa todas las obras en general, sin las demás funciones de
+// administrador como gestionar usuarios).
+export type Role = "ADMIN" | "MEMBER" | "CONTABILIDAD" | "GERENTE";
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrador",
   MEMBER: "Miembro",
-  CONTABILIDAD: "Contabilidad"
+  CONTABILIDAD: "Contabilidad",
+  GERENTE: "Gerente"
 };
 
 // Tipo de comprobante de un gasto.
