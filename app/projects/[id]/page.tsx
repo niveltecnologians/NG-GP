@@ -31,19 +31,30 @@ export default async function ProjectPage({ params }: { params: { id: string } }
 
   if (!project) notFound();
 
+  // El gerente entra a cualquier obra sin necesidad de ser dueño ni
+  // miembro (igual que el administrador).
   const isMember =
-    project.ownerId === user.userId || project.members.some((m) => m.userId === user.userId);
+    project.ownerId === user.userId ||
+    project.members.some((m) => m.userId === user.userId) ||
+    user.role === "GERENTE";
   if (!isMember) notFound();
 
   const isOwner = project.ownerId === user.userId;
-  const canManage = isOwner || user.role === "ADMIN";
+  const canManage = isOwner || user.role === "ADMIN" || user.role === "GERENTE";
 
-  // Un miembro común solo ve las tareas que tiene asignadas a él (puede ser
-  // una de varias personas asignadas); el dueño del proyecto y los
-  // administradores del sistema ven todas.
+  // Un miembro con un área asignada (Carpintería, Redes, Arquitectura u
+  // Obra Civil) ve todas las tareas de esa área en el proyecto, sin
+  // importar a quién se le asignó cada una. Si el miembro no tiene área
+  // asignada, o la tarea no tiene área, se sigue viendo solo lo que tiene
+  // asignado a él mismo (como antes). El dueño del proyecto, los
+  // administradores y el gerente ven todas las tareas.
   const visibleTasks = canManage
     ? project.tasks
-    : project.tasks.filter((t) => t.assignees.some((a) => a.user.id === user.userId));
+    : project.tasks.filter((t) =>
+        user.area && t.area
+          ? t.area === user.area
+          : t.assignees.some((a) => a.user.id === user.userId)
+      );
 
   const serialized = {
     ...project,
@@ -76,7 +87,9 @@ export default async function ProjectPage({ params }: { params: { id: string } }
           </p>
           {!canManage && (
             <p className="mt-1 text-xs text-amber-600">
-              Solo ves las tareas que tienes asignadas. El dueño del proyecto y los administradores ven todas.
+              {user.area
+                ? "Solo ves las tareas de tu área (y las que tienes asignadas). El dueño del proyecto, los administradores y el gerente ven todas."
+                : "Solo ves las tareas que tienes asignadas. El dueño del proyecto, los administradores y el gerente ven todas."}
             </p>
           )}
         </div>
