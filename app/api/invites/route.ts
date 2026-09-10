@@ -3,7 +3,8 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
-const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD"];
+const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD", "GERENTE"];
+const VALID_AREAS = ["CARPINTERIA", "REDES", "ARQUITECTURA", "OBRA_CIVIL"];
 
 function generateCode() {
   // Código legible tipo AB12-CD34
@@ -15,6 +16,7 @@ const INVITE_SELECT = {
   id: true,
   code: true,
   role: true,
+  area: true,
   usedAt: true,
   createdAt: true,
   createdBy: { select: { id: true, name: true } },
@@ -44,6 +46,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const role = VALID_ROLES.includes(body?.role) ? body.role : "MEMBER";
+  const area = VALID_AREAS.includes(body?.area) ? body.area : null;
 
   let code = generateCode();
   // Muy improbable que choque, pero por si acaso reintenta.
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
   }
 
   const invite = await prisma.inviteCode.create({
-    data: { code, role, createdById: user.userId },
+    data: { code, role, area, createdById: user.userId },
     select: INVITE_SELECT
   });
 
