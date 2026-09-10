@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Role, ROLE_LABELS } from "@/lib/types";
 
 type Invite = {
   id: string;
   code: string;
-  role: "ADMIN" | "MEMBER";
+  role: Role;
   usedAt: string | null;
   createdAt: string;
   createdBy: { id: string; name: string } | null;
@@ -16,7 +17,7 @@ export default function InvitesManager() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [role, setRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
+  const [role, setRole] = useState<Role>("MEMBER");
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -73,9 +74,10 @@ export default function InvitesManager() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <select className="input w-40" value={role} onChange={(e) => setRole(e.target.value as "ADMIN" | "MEMBER")}>
+          <select className="input w-40" value={role} onChange={(e) => setRole(e.target.value as Role)}>
             <option value="MEMBER">Como miembro</option>
             <option value="ADMIN">Como administrador</option>
+            <option value="CONTABILIDAD">Como contabilidad</option>
           </select>
           <button className="btn" onClick={handleCreate} disabled={creating}>
             {creating ? "Generando..." : "+ Generar código"}
@@ -105,7 +107,7 @@ export default function InvitesManager() {
               invites.map((inv) => (
                 <tr key={inv.id} className="border-b border-slate-100 text-sm">
                   <td className="px-4 py-2.5 font-mono">{inv.code}</td>
-                  <td className="px-4 py-2.5">{inv.role === "ADMIN" ? "Administrador" : "Miembro"}</td>
+                  <td className="px-4 py-2.5">{ROLE_LABELS[inv.role]}</td>
                   <td className="px-4 py-2.5">
                     {inv.usedAt ? (
                       <span className="text-slate-400">Usado por {inv.usedBy?.name || "—"}</span>
