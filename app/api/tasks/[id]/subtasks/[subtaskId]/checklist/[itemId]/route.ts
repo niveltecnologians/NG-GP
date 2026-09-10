@@ -4,7 +4,12 @@ import { getCurrentUser } from "@/lib/session";
 import { SUBTASK_CHECKLIST_ITEM_SELECT } from "@/lib/selects";
 import { assertTaskAccess } from "@/lib/taskAccess";
 
-async function assertAccess(taskId: string, subtaskId: string, userId: string, userRole: "ADMIN" | "MEMBER") {
+async function assertAccess(
+  taskId: string,
+  subtaskId: string,
+  userId: string,
+  userRole: "ADMIN" | "MEMBER" | "CONTABILIDAD"
+) {
   const task = await assertTaskAccess(taskId, userId, userRole);
   if (!task) return null;
   const subtask = await prisma.subTask.findUnique({ where: { id: subtaskId } });
