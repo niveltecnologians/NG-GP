@@ -3,13 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hashPassword } from "@/lib/auth";
 
-const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD"];
+const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD", "GERENTE"];
+const VALID_AREAS = ["CARPINTERIA", "REDES", "ARQUITECTURA", "OBRA_CIVIL"];
 
 const USER_LIST_SELECT = {
   id: true,
   name: true,
   email: true,
   role: true,
+  area: true,
   createdAt: true
 } as const;
 
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Solo un administrador puede crear usuarios" }, { status: 403 });
   }
 
-  const { name, email, password, role } = await req.json();
+  const { name, email, password, role, area } = await req.json();
   if (!name || !email || !password) {
     return NextResponse.json({ error: "Nombre, email y contraseña son obligatorios" }, { status: 400 });
   }
@@ -49,7 +51,13 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(password);
   const created = await prisma.user.create({
-    data: { name, email, passwordHash, role: VALID_ROLES.includes(role) ? role : "MEMBER" },
+    data: {
+      name,
+      email,
+      passwordHash,
+      role: VALID_ROLES.includes(role) ? role : "MEMBER",
+      area: VALID_AREAS.includes(area) ? area : null
+    },
     select: USER_LIST_SELECT
   });
 
