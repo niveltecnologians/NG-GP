@@ -10,9 +10,8 @@ export interface SessionPayload {
   userId: string;
   email: string;
   name: string;
-  role: "ADMIN" | "MEMBER";
+  role: "ADMIN" | "MEMBER" | "CONTABILIDAD";
 }
-
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
