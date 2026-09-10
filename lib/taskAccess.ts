@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 export function canManageProjectTasks(
   project: { ownerId: string },
   userId: string,
-  userRole: "ADMIN" | "MEMBER"
+  userRole: "ADMIN" | "MEMBER" | "CONTABILIDAD"
 ) {
   return project.ownerId === userId || userRole === "ADMIN";
 }
@@ -15,7 +15,11 @@ export function canManageProjectTasks(
 // Revisa que el usuario pertenezca al proyecto de la tarea y, si no puede
 // administrar todo el proyecto, que la tarea esté asignada a él. Devuelve la
 // tarea (con su proyecto incluido) si tiene acceso, o null si no.
-export async function assertTaskAccess(taskId: string, userId: string, userRole: "ADMIN" | "MEMBER") {
+export async function assertTaskAccess(
+  taskId: string,
+  userId: string,
+  userRole: "ADMIN" | "MEMBER" | "CONTABILIDAD"
+) {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     include: { project: { include: { members: true } }, assignees: true }
