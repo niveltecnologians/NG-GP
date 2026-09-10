@@ -23,6 +23,7 @@ const ACCESS_SELECT = {
   token: true,
   active: true,
   showBudget: true,
+  showSchedule: true,
   lastVisitAt: true,
   createdAt: true
 } as const;
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const project = await assertCanManage(params.id, user.userId, user.role);
   if (!project) return NextResponse.json({ error: "No tienes acceso a este proyecto" }, { status: 403 });
 
-  const { name, email, pin, showBudget } = await req.json();
+  const { name, email, pin, showBudget, showSchedule } = await req.json();
   if (!name || !String(name).trim()) {
     return NextResponse.json({ error: "El nombre del cliente es obligatorio" }, { status: 400 });
   }
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       token: generatePortalToken(),
       pinHash: pin ? await hashPassword(String(pin)) : null,
       showBudget: Boolean(showBudget),
+      showSchedule: Boolean(showSchedule),
       createdById: user.userId
     },
     select: ACCESS_SELECT
