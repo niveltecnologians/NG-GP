@@ -30,6 +30,10 @@ enum Role {
   // Ve los gastos de todos los proyectos (para causarlos en la
   // contabilidad), pero no entra a los tableros ni a las tareas.
   CONTABILIDAD
+  // Ve y edita todas las tareas de todas las obras, sin necesidad de ser
+  // miembro de cada proyecto (igual que Administrador, pero pensado para
+  // quien supervisa todas las obras en general).
+  GERENTE
 }
 
 enum TaskStatus {
@@ -63,11 +67,15 @@ enum TaskPriority {
 }
 
 // Área/oficio al que pertenece la tarea; cada una tiene un color fijo en la
-// interfaz (Carpintería = amarillo, Redes = rojo, Arquitectura = azul).
+// interfaz (Carpintería = amarillo, Redes = rojo, Arquitectura = azul, Obra
+// Civil = verde). También se usa para restringir qué ve cada usuario: un
+// miembro con un área asignada (User.area) solo ve, dentro de cada
+// proyecto, las tareas de su misma área.
 enum TaskArea {
   CARPINTERIA
   REDES
   ARQUITECTURA
+  OBRA_CIVIL
 }
 
 // Fase del proceso a la que pertenece la actividad (independiente del
@@ -113,6 +121,13 @@ model User {
   email         String   @unique
   passwordHash  String
   role          Role     @default(MEMBER)
+
+  // Área a la que pertenece este usuario (solo aplica a miembros de un
+  // área puntual, ej. Redes o Arquitectura). Si está en null, ve las
+  // tareas por asignación individual, como antes. Administrador, Gerente
+  // y Contabilidad no necesitan área: ya ven todo o nada, según su rol.
+  area          TaskArea?
+
   createdAt     DateTime @default(now())
 
   // Perfil
@@ -160,6 +175,10 @@ model InviteCode {
   id          String    @id @default(cuid())
   code        String    @unique
   role        Role      @default(MEMBER)
+
+  // Si el código es para un miembro de un área puntual, la persona que se
+  // registra con él queda con esa área asignada automáticamente.
+  area        TaskArea?
 
   createdById String?
   createdBy   User?     @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
