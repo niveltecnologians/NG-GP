@@ -21,6 +21,7 @@ const ACCESS_SELECT = {
   token: true,
   active: true,
   showBudget: true,
+  showSchedule: true,
   lastVisitAt: true,
   createdAt: true
 } as const;
@@ -35,13 +36,14 @@ export async function PATCH(
   const access = await assertCanManage(params.id, params.accessId, user.userId, user.role);
   if (!access) return NextResponse.json({ error: "No tienes acceso a este portal" }, { status: 403 });
 
-  const { name, email, active, showBudget, pin, clearPin, regenerateToken } = await req.json();
+  const { name, email, active, showBudget, showSchedule, pin, clearPin, regenerateToken } = await req.json();
 
   const data: Record<string, unknown> = {};
   if (typeof name === "string" && name.trim()) data.name = name.trim();
   if (email !== undefined) data.email = email ? String(email).trim() : null;
   if (typeof active === "boolean") data.active = active;
   if (typeof showBudget === "boolean") data.showBudget = showBudget;
+  if (typeof showSchedule === "boolean") data.showSchedule = showSchedule;
 
   // Quitar el PIN deja el portal abierto solo con el enlace.
   if (clearPin === true) {
