@@ -31,7 +31,10 @@ export async function POST(req: NextRequest) {
 
   const project = await prisma.project.findUnique({ where: { id: projectId }, include: { members: true } });
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
-  const isMember = project.ownerId === user.userId || project.members.some((m) => m.userId === user.userId);
+  const isMember =
+    project.ownerId === user.userId ||
+    project.members.some((m) => m.userId === user.userId) ||
+    user.role === "GERENTE";
   if (!isMember) return NextResponse.json({ error: "No perteneces a este proyecto" }, { status: 403 });
 
   // Solo se puede asignar a gente que sí pertenece al proyecto (dueño o
