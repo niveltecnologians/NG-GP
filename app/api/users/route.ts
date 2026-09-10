@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hashPassword } from "@/lib/auth";
 
+const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD"];
+
 const USER_LIST_SELECT = {
   id: true,
   name: true,
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(password);
   const created = await prisma.user.create({
-    data: { name, email, passwordHash, role: role === "ADMIN" ? "ADMIN" : "MEMBER" },
+    data: { name, email, passwordHash, role: VALID_ROLES.includes(role) ? role : "MEMBER" },
     select: USER_LIST_SELECT
   });
 
