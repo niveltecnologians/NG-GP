@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PORTAL_COOKIE, verifyPortalSession } from "@/lib/clientPortal";
+import { isFinalStatus } from "@/lib/taskDates";
+import type { TaskStatus } from "@/lib/types";
 import PortalView from "./PortalView";
 import PinGate from "./PinGate";
 
@@ -21,6 +23,7 @@ export default async function PortalPage({ params }: { params: { token: string }
       active: true,
       pinHash: true,
       showBudget: true,
+      showSchedule: true,
       projectId: true,
       project: { select: { id: true, name: true, description: true } }
     }
@@ -38,7 +41,7 @@ export default async function PortalPage({ params }: { params: { token: string }
     }
   }
 
-  const [reports, budgetItems] = await Promise.all([
+  const [reports, budgetItems, scheduleTasks] = await Promise.all([
     prisma.progressReport.findMany({
       where: { projectId: access.projectId, status: "PUBLISHED" },
       include: { photos: { orderBy: { order: "asc" } } },
@@ -48,6 +51,15 @@ export default async function PortalPage({ params }: { params: { token: string }
       ? prisma.clientBudgetItem.findMany({
           where: { projectId: access.projectId },
           orderBy: { order: "asc" }
+        })
+      : Promise.resolve([]),
+    // El cronograma del cliente solo muestra nombre, fechas y % de avance —
+    // nunca comentarios, adjuntos ni el presupuesto interno de la tarea.
+    access.showSchedule
+      ? prisma.task.findMany({
+          where: { projectId: access.projectId, startDate: { not: null } },
+          select: { id: true, title: true, status: true, startDate: true, dueDate: true },
+          orderBy: { startDate: "asc" }
         })
       : Promise.resolve([])
   ]);
@@ -73,6 +85,14 @@ export default async function PortalPage({ params }: { params: { token: string }
     }))
   }));
 
+  const serializedSchedule = scheduleTasks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    startDate: t.startDate ? t.startDate.toISOString() : null,
+    dueDate: t.dueDate ? t.dueDate.toISOString() : null,
+    progress: isFinalStatus(t.status as TaskStatus) ? 100 : 0
+  }));
+
   return (
     <PortalView
       clientName={access.name}
@@ -81,6 +101,8 @@ export default async function PortalPage({ params }: { params: { token: string }
       reports={serialized}
       budgetItems={access.showBudget ? budgetItems : []}
       showBudget={access.showBudget && budgetItems.length > 0}
+      scheduleTasks={serializedSchedule}
+      showSchedule={access.showSchedule && serializedSchedule.length > 0}
     />
   );
 }
