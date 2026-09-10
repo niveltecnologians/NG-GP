@@ -14,6 +14,7 @@ export async function GET() {
       name: true,
       email: true,
       role: true,
+      area: true,
       bio: true,
       hasAvatar: true,
       backgroundColor: true,
@@ -41,13 +42,19 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.user.update({
     where: { id: user.userId },
     data,
-    select: { id: true, name: true, email: true, role: true, bio: true }
+    select: { id: true, name: true, email: true, role: true, area: true, bio: true }
   });
 
   const res = NextResponse.json(updated);
   if (data.name) {
     // Refresca la cookie de sesión para que el nombre nuevo se vea de inmediato en el navbar.
-    const token = await signSession({ userId: updated.id, email: updated.email, name: updated.name, role: updated.role });
+    const token = await signSession({
+      userId: updated.id,
+      email: updated.email,
+      name: updated.name,
+      role: updated.role,
+      area: updated.area
+    });
     res.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: "lax",
