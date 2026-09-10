@@ -6,14 +6,16 @@ import KanbanBoard from "@/components/KanbanBoard";
 import GanttChart from "@/components/GanttChart";
 import BudgetTab from "@/components/BudgetTab";
 import ReportsTab from "@/components/ReportsTab";
+import ExpensesTab from "@/components/ExpensesTab";
 
-type View = "board" | "gantt" | "budget" | "reports";
+type View = "board" | "gantt" | "budget" | "reports" | "expenses";
 
 const TABS: { key: View; label: string }[] = [
   { key: "board", label: "Tablero" },
   { key: "gantt", label: "Cronograma" },
   { key: "budget", label: "Presupuesto" },
-  { key: "reports", label: "Informes de obra" }
+  { key: "reports", label: "Informes de obra" },
+  { key: "expenses", label: "Gastos" }
 ];
 
 export default function ProjectTabs({
@@ -61,6 +63,7 @@ export default function ProjectTabs({
       )}
       {view === "budget" && <BudgetTab projectId={project.id} tasks={tasks} setTasks={setTasks} />}
       {view === "reports" && <ReportsTab projectId={project.id} canManage={canManage} />}
+      {view === "expenses" && <ExpensesTab projectId={project.id} canManage={canManage} />}
     </div>
   );
 }
