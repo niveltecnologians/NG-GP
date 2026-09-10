@@ -193,3 +193,44 @@ export type GlobalTask = Task & {
   projectName: string;
   projectBoardMode: BoardMode;
 };
+
+// Rol de usuario del sistema. CONTABILIDAD ve los gastos de todos los
+// proyectos (para causarlos) pero no entra a los tableros ni tareas.
+export type Role = "ADMIN" | "MEMBER" | "CONTABILIDAD";
+
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: "Administrador",
+  MEMBER: "Miembro",
+  CONTABILIDAD: "Contabilidad"
+};
+
+// Tipo de comprobante de un gasto.
+export type ExpenseType = "FACTURA" | "CUENTA_DE_COBRO" | "OTRO";
+
+// Estado contable de un gasto: lo pone Contabilidad, no quien lo registra.
+export type ExpenseAccountingStatus = "PENDIENTE" | "CAUSADO" | "NO_CAUSADO";
+
+export const EXPENSE_TYPE_LABELS: Record<ExpenseType, string> = {
+  FACTURA: "Factura electrónica",
+  CUENTA_DE_COBRO: "Cuenta de cobro",
+  OTRO: "Otro comprobante"
+};
+
+export const EXPENSE_ACCOUNTING_STATUS_LABELS: Record<ExpenseAccountingStatus, string> = {
+  PENDIENTE: "Pendiente",
+  CAUSADO: "Causado",
+  NO_CAUSADO: "No causado"
+};
+
+export const EXPENSE_ACCOUNTING_STATUS_COLORS: Record<ExpenseAccountingStatus, string> = {
+  PENDIENTE: "bg-slate-100 text-slate-600",
+  CAUSADO: "bg-emerald-100 text-emerald-700",
+  NO_CAUSADO: "bg-red-100 text-red-700"
+};
+
+export type ExpenseComment = {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: { id: string; name: string } | null;
+};
