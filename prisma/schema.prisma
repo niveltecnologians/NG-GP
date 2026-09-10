@@ -149,6 +149,7 @@ model User {
 
   clientAccessesCreated ClientAccess[]   @relation("ClientAccessCreator")
   reportsAuthored       ProgressReport[] @relation("ReportAuthor")
+  expensesCreated       Expense[]        @relation("ExpenseCreator")
 }
 
 model InviteCode {
@@ -181,6 +182,10 @@ model Project {
   clientAccesses ClientAccess[]
   reports        ProgressReport[]
   budgetItems    ClientBudgetItem[]
+
+  // Gastos reales del día a día (aparte del presupuesto, que es lo
+  // planeado/cotizado).
+  expenses       Expense[]
 
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -648,4 +653,45 @@ model ClientBudgetItem {
   updatedAt DateTime @updatedAt
 
   @@index([projectId])
+}
+
+// Tipo de comprobante de un gasto. FACTURA es la factura electrónica que
+// manda el proveedor; CUENTA_DE_COBRO es el documento que usa alguien que
+// no factura formalmente (muy común con contratistas/oficios en Colombia).
+enum ExpenseType {
+  FACTURA
+  CUENTA_DE_COBRO
+  OTRO
+}
+
+// Gasto real del día a día de la obra (mano de obra, materiales, etc.),
+// con su comprobante adjunto. Es aparte del presupuesto (ClientBudgetItem/
+// Task.budget), que es lo planeado o cotizado: esto es lo que realmente
+// se pagó.
+model Expense {
+  id          String      @id @default(cuid())
+
+  projectId   String
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  concept     String
+  amount      Float
+  date        DateTime    @default(now())
+  type        ExpenseType @default(OTRO)
+  notes       String?
+
+  // Comprobante adjunto (factura o cuenta de cobro). Mismo patrón que
+  // Attachment/ProgressPhoto: vive en Vercel Blob, aquí solo queda la URL.
+  fileUrl      String?
+  fileName     String?
+  fileMimeType String?
+
+  createdById String?
+  createdBy   User?       @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([projectId])
+  @@index([projectId, date])
 }
