@@ -39,10 +39,11 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await hashPassword(password);
   const role = userCount === 0 ? "ADMIN" : invite!.role;
+  const area = userCount === 0 ? null : invite!.area;
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
-      data: { name, email, passwordHash, role }
+      data: { name, email, passwordHash, role, area }
     });
     if (invite) {
       await tx.inviteCode.update({
@@ -53,7 +54,13 @@ export async function POST(req: NextRequest) {
     return created;
   });
 
-  const token = await signSession({ userId: user.id, email: user.email, name: user.name, role: user.role });
+  const token = await signSession({
+    userId: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    area: user.area
+  });
 
   const res = NextResponse.json({ id: user.id, name: user.name, email: user.email, role: user.role });
   res.cookies.set(SESSION_COOKIE, token, {
