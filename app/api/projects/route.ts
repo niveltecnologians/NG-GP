@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
-// Lista los proyectos donde el usuario es dueño o miembro
+// Lista los proyectos donde el usuario es dueño o miembro (o todos, si es
+// gerente: ve todas las obras sin necesidad de pertenecer a cada una).
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const projects = await prisma.project.findMany({
-    where: {
-      OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }]
-    },
+    where:
+      user.role === "GERENTE"
+        ? {}
+        : { OR: [{ ownerId: user.userId }, { members: { some: { userId: user.userId } } }] },
     include: {
       owner: { select: { id: true, name: true, email: true } },
       members: { include: { user: { select: { id: true, name: true, email: true } } } },
