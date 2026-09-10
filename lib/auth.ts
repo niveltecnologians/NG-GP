@@ -10,8 +10,12 @@ export interface SessionPayload {
   userId: string;
   email: string;
   name: string;
-  role: "ADMIN" | "MEMBER" | "CONTABILIDAD";
+  role: "ADMIN" | "MEMBER" | "CONTABILIDAD" | "GERENTE";
+  // Área del usuario (solo aplica a miembros de un área puntual, ej. Redes
+  // o Arquitectura). null si no tiene una asignada.
+  area: "CARPINTERIA" | "REDES" | "ARQUITECTURA" | "OBRA_CIVIL" | null;
 }
+
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
