@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { hashPassword } from "@/lib/auth";
 
+const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD"];
+
 // Un administrador puede editar el nombre, correo, contraseña y rol de
 // cualquier usuario (incluido a sí mismo).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -43,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return NextResponse.json({ error: "No puedes quitarle el rol al único administrador" }, { status: 400 });
       }
     }
-    data.role = role === "ADMIN" ? "ADMIN" : "MEMBER";
+    data.role = VALID_ROLES.includes(role) ? role : "MEMBER";
   }
 
   const updated = await prisma.user.update({
