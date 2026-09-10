@@ -1,27 +1,31 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/session";
-import { getAppSettings } from "@/lib/settings";
-import SettingsForm from "./SettingsForm";
+import SyncManager from "./SyncManager";
 
-export default async function SettingsPage() {
+export default async function SyncPage() {
   const user = await requireUser();
 
   if (user.role !== "ADMIN") {
     return (
       <div className="card p-10 text-center text-slate-500">
-        Solo un administrador puede cambiar la configuración de la aplicación.
+        Solo un administrador puede sincronizar con ObraFlow.
       </div>
     );
   }
 
-  const settings = await getAppSettings();
-
   return (
     <div className="mx-auto max-w-xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Configuración</h1>
-        <p className="text-sm text-slate-500">Personaliza el nombre, el logo y la imagen de la aplicación para todo el equipo</p>
+        <Link href="/settings" className="text-sm text-brand-600 hover:underline">
+          ← Configuración
+        </Link>
+        <h1 className="mt-2 text-2xl font-bold">Sincronizar con ObraFlow</h1>
+        <p className="text-sm text-slate-500">
+          ObraFlow y NG-GP no están conectados en vivo — cada uno descarga un archivo y lo sube en el otro cuando
+          quieran ponerse al día. Repite este proceso cada vez que necesiten sincronizar los cambios.
+        </p>
       </div>
-      <SettingsForm initialAppName={settings.appName} initialHasLogo={settings.hasLogo} initialHasBanner={settings.hasBanner} />
+      <SyncManager />
     </div>
   );
 }
