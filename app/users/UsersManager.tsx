@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Role, ROLE_LABELS } from "@/lib/types";
 
-type UserRow = { id: string; name: string; email: string; role: "ADMIN" | "MEMBER"; createdAt: string };
+type UserRow = { id: string; name: string; email: string; role: Role; createdAt: string };
 
 export default function UsersManager({
   initialUsers,
@@ -16,7 +17,7 @@ export default function UsersManager({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
+  const [role, setRole] = useState<Role>("MEMBER");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,7 +25,7 @@ export default function UsersManager({
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
-  const [editRole, setEditRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
+  const [editRole, setEditRole] = useState<Role>("MEMBER");
   const [editError, setEditError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
 
@@ -123,7 +124,7 @@ export default function UsersManager({
               <tr key={u.id} className="border-b border-slate-100 text-sm">
                 <td className="px-4 py-2.5">{u.name}</td>
                 <td className="px-4 py-2.5">{u.email}</td>
-                <td className="px-4 py-2.5">{u.role === "ADMIN" ? "Administrador" : "Miembro"}</td>
+                <td className="px-4 py-2.5">{ROLE_LABELS[u.role]}</td>
                 <td className="px-4 py-2.5 text-xs text-slate-400">
                   {new Date(u.createdAt).toLocaleDateString("es-ES")}
                 </td>
@@ -165,9 +166,10 @@ export default function UsersManager({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium">Rol</label>
-              <select className="input" value={role} onChange={(e) => setRole(e.target.value as "ADMIN" | "MEMBER")}>
+              <select className="input" value={role} onChange={(e) => setRole(e.target.value as Role)}>
                 <option value="MEMBER">Miembro</option>
                 <option value="ADMIN">Administrador</option>
+                <option value="CONTABILIDAD">Contabilidad</option>
               </select>
             </div>
             <div className="flex justify-end gap-2">
@@ -207,11 +209,12 @@ export default function UsersManager({
               <select
                 className="input"
                 value={editRole}
-                onChange={(e) => setEditRole(e.target.value as "ADMIN" | "MEMBER")}
+                onChange={(e) => setEditRole(e.target.value as Role)}
                 disabled={editingUser.id === currentUserId}
               >
                 <option value="MEMBER">Miembro</option>
                 <option value="ADMIN">Administrador</option>
+                <option value="CONTABILIDAD">Contabilidad</option>
               </select>
               {editingUser.id === currentUserId && (
                 <p className="mt-1 text-xs text-slate-400">No puedes cambiar tu propio rol.</p>
