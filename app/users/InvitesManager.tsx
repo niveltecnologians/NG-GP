@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Role, ROLE_LABELS } from "@/lib/types";
+import { Role, ROLE_LABELS, TaskArea, AREA_LABELS } from "@/lib/types";
 
 type Invite = {
   id: string;
   code: string;
   role: Role;
+  area: TaskArea | null;
   usedAt: string | null;
   createdAt: string;
   createdBy: { id: string; name: string } | null;
@@ -18,6 +19,7 @@ export default function InvitesManager() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [role, setRole] = useState<Role>("MEMBER");
+  const [area, setArea] = useState<TaskArea | "">("");
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -39,7 +41,7 @@ export default function InvitesManager() {
     const res = await fetch("/api/invites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role })
+      body: JSON.stringify({ role, area: role === "MEMBER" ? area || null : null })
     });
     setCreating(false);
     if (!res.ok) {
@@ -73,12 +75,21 @@ export default function InvitesManager() {
             Genera un código y compártelo con quien quieras invitar; lo va a pedir en la pantalla de registro.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select className="input w-40" value={role} onChange={(e) => setRole(e.target.value as Role)}>
             <option value="MEMBER">Como miembro</option>
             <option value="ADMIN">Como administrador</option>
             <option value="CONTABILIDAD">Como contabilidad</option>
+            <option value="GERENTE">Como gerente</option>
           </select>
+          {role === "MEMBER" && (
+            <select className="input w-40" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
+              <option value="">Sin área</option>
+              {Object.entries(AREA_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          )}
           <button className="btn" onClick={handleCreate} disabled={creating}>
             {creating ? "Generando..." : "+ Generar código"}
           </button>
@@ -93,6 +104,7 @@ export default function InvitesManager() {
             <tr className="border-b border-slate-200 text-xs text-slate-500">
               <th className="px-4 py-2.5 font-medium">Código</th>
               <th className="px-4 py-2.5 font-medium">Rol</th>
+              <th className="px-4 py-2.5 font-medium">Área</th>
               <th className="px-4 py-2.5 font-medium">Estado</th>
               <th className="px-4 py-2.5 font-medium">Creado</th>
               <th className="px-4 py-2.5"></th>
@@ -100,14 +112,15 @@ export default function InvitesManager() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">Cargando...</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">Cargando...</td></tr>
             ) : invites.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-6 text-center text-sm text-slate-400">Aún no has generado ningún código.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-slate-400">Aún no has generado ningún código.</td></tr>
             ) : (
               invites.map((inv) => (
                 <tr key={inv.id} className="border-b border-slate-100 text-sm">
                   <td className="px-4 py-2.5 font-mono">{inv.code}</td>
                   <td className="px-4 py-2.5">{ROLE_LABELS[inv.role]}</td>
+                  <td className="px-4 py-2.5">{inv.area ? AREA_LABELS[inv.area] : "—"}</td>
                   <td className="px-4 py-2.5">
                     {inv.usedAt ? (
                       <span className="text-slate-400">Usado por {inv.usedBy?.name || "—"}</span>
