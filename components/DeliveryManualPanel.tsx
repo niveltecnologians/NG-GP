@@ -1,14 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { downloadWordDoc, escapeHtml } from "@/lib/wordExport";
+import { downloadWordDoc, escapeHtml, imageUrlToDataUri } from "@/lib/wordExport";
 
 type Manual = { content: string; usedAI: boolean; updatedAt: string } | null;
 
+type ManualPhoto = { url: string; filename: string; caption: string | null };
+type ManualSection = { areaName: string; text: string; photos: ManualPhoto[] };
+
+// El contenido se guarda como JSON ({ sections: [...] }), una sección por
+// área con su texto y sus fotos. Si viene de un manual generado antes de
+// este cambio (texto plano), se muestra como una sola sección "General".
+function parseManualSections(content: string): ManualSection[] {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed && Array.isArray(parsed.sections)) return parsed.sections;
+  } catch {
+    // Manual generado antes de este cambio: era texto plano.
+  }
+  return [{ areaName: "General", text: content, photos: [] }];
+}
+
 // Panel de "Manual de entrega": junta los informes publicados de todas las
-// áreas de este proyecto en un solo documento (el mismo que ve el cliente
-// en su portal). Cualquier miembro del proyecto puede verlo y descargarlo
-// una vez existe; solo quien administra el proyecto completo (dueño,
+// áreas de este proyecto en un solo documento, sección por área con su
+// texto y su registro fotográfico (el mismo que ve el cliente en su
+// portal). Cualquier miembro del proyecto puede verlo y descargarlo una
+// vez existe; solo quien administra el proyecto completo (dueño,
 // administrador o gerente) puede generarlo, volver a generarlo o borrarlo.
 export default function DeliveryManualPanel({
   projectId,
@@ -21,6 +38,7 @@ export default function DeliveryManualPanel({
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -75,19 +93,37 @@ export default function DeliveryManualPanel({
     setOpen(false);
   }
 
-  function handleExportWord() {
+  // Descarga el manual completo como Word: una sección por área, con su
+  // texto y sus fotos incrustadas dentro del archivo (no dependen de
+  // internet cuando alguien lo abra más tarde). Como hay que descargar
+  // todas las fotos de todas las áreas, puede tomar varios segundos.
+  async function handleExportWord() {
     if (!manual) return;
-    const updated = new Date(manual.updatedAt).toLocaleDateString("es-CO", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      timeZone: "America/Bogota"
-    });
-    const html =
-      "<h1>Manual de entrega</h1>" +
-      `<p class="meta">Actualizado ${escapeHtml(updated)}</p>` +
-      `<p>${escapeHtml(manual.content).replace(/\n/g, "<br>")}</p>`;
-    downloadWordDoc("Manual de entrega", "Manual de entrega", html);
+    setExporting(true);
+    setError(null);
+    try {
+      const updated = new Date(manual.updatedAt).toLocaleDateString("es-CO", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "America/Bogota"
+      });
+      let html = "<h1>Manual de entrega</h1>" + `<p class="meta">Actualizado ${escapeHtml(updated)}</p>`;
+
+      for (const section of parseManualSections(manual.content)) {
+        html += `<h2>${escapeHtml(section.areaName)}</h2>`;
+        html += `<p>${escapeHtml(section.text).replace(/\n/g, "<br>")}</p>`;
+        for (const photo of section.photos) {
+          const dataUri = await imageUrlToDataUri(photo.url);
+          html += `<img src="${dataUri || photo.url}" alt="${escapeHtml(photo.caption || photo.filename)}">`;
+          if (photo.caption) html += `<p class="caption">${escapeHtml(photo.caption)}</p>`;
+        }
+      }
+
+      downloadWordDoc("Manual de entrega", "Manual de entrega", html);
+    } finally {
+      setExporting(false);
+    }
   }
 
   if (loading) return null;
@@ -99,14 +135,14 @@ export default function DeliveryManualPanel({
         <div>
           <h2 className="text-lg font-semibold">Manual de entrega</h2>
           <p className="text-sm text-slate-500">
-            Junta los informes publicados de todas las áreas en un solo documento — el mismo que ve el
-            cliente en su portal, completo, sin importar el área.
+            Junta los informes publicados de todas las áreas en un solo documento, con el texto y las fotos
+            de cada área — el mismo que ve el cliente en su portal, completo.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {manual && (
-            <button className="btn-secondary" onClick={handleExportWord}>
-              Descargar Word
+            <button className="btn-secondary" disabled={exporting} onClick={handleExportWord}>
+              {exporting ? "Preparando..." : "Descargar Word"}
             </button>
           )}
           {canGenerate && manual && (
@@ -152,8 +188,36 @@ export default function DeliveryManualPanel({
             </button>
           </div>
           {open && (
-            <div className="max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-sm leading-relaxed text-slate-700">
-              {manual.content}
+            <div className="max-h-[32rem] space-y-5 overflow-y-auto rounded-lg bg-slate-50 p-4">
+              {parseManualSections(manual.content).map((section, i) => (
+                <div key={i}>
+                  <h3 className="text-sm font-semibold text-slate-800">{section.areaName}</h3>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                    {section.text}
+                  </p>
+                  {section.photos.length > 0 && (
+                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+                      {section.photos.map((photo, j) => (
+                        <a
+                          key={j}
+                          href={photo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block overflow-hidden rounded bg-slate-200"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={photo.url}
+                            alt={photo.caption || photo.filename}
+                            loading="lazy"
+                            className="aspect-square w-full object-cover"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
