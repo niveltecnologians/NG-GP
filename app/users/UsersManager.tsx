@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Role, ROLE_LABELS, TaskArea, AREA_LABELS } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { Role, ROLE_LABELS, AreaColorKey } from "@/lib/types";
+
+type AreaOption = { id: string; name: string; colorKey: AreaColorKey };
 
 type UserRow = {
   id: string;
   name: string;
   email: string;
   role: Role;
-  area: TaskArea | null;
+  area: AreaOption | null;
+  seesAllAreas: boolean;
   createdAt: string;
 };
 
@@ -20,12 +23,14 @@ export default function UsersManager({
   currentUserId: string;
 }) {
   const [users, setUsers] = useState(initialUsers);
+  const [areas, setAreas] = useState<AreaOption[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("MEMBER");
-  const [area, setArea] = useState<TaskArea | "">("");
+  const [areaId, setAreaId] = useState<string>("");
+  const [seesAllAreas, setSeesAllAreas] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -34,9 +39,20 @@ export default function UsersManager({
   const [editEmail, setEditEmail] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editRole, setEditRole] = useState<Role>("MEMBER");
-  const [editArea, setEditArea] = useState<TaskArea | "">("");
+  const [editAreaId, setEditAreaId] = useState<string>("");
+  const [editSeesAllAreas, setEditSeesAllAreas] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+
+  // Trae la lista de áreas (editable desde el panel de Áreas de trabajo)
+  // para los selectores de arriba: cualquier área nueva que se cree
+  // aparece acá de inmediato, sin tocar código.
+  useEffect(() => {
+    fetch("/api/areas")
+      .then((r) => r.json())
+      .then(setAreas)
+      .catch(() => {});
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -45,7 +61,14 @@ export default function UsersManager({
     const res = await fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, role, area: role === "MEMBER" ? area || null : null })
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        role,
+        areaId: role === "MEMBER" ? areaId || null : null,
+        seesAllAreas: role === "MEMBER" ? seesAllAreas : false
+      })
     });
     setLoading(false);
     if (!res.ok) {
@@ -60,7 +83,8 @@ export default function UsersManager({
     setEmail("");
     setPassword("");
     setRole("MEMBER");
-    setArea("");
+    setAreaId("");
+    setSeesAllAreas(false);
   }
 
   async function handleDelete(user: UserRow) {
@@ -81,7 +105,8 @@ export default function UsersManager({
     setEditEmail(user.email);
     setEditPassword("");
     setEditRole(user.role);
-    setEditArea(user.area || "");
+    setEditAreaId(user.area?.id || "");
+    setEditSeesAllAreas(user.seesAllAreas);
     setEditError(null);
   }
 
@@ -98,7 +123,8 @@ export default function UsersManager({
         email: editEmail,
         password: editPassword || undefined,
         role: editRole,
-        area: editRole === "MEMBER" ? editArea || null : null
+        areaId: editRole === "MEMBER" ? editAreaId || null : null,
+        seesAllAreas: editRole === "MEMBER" ? editSeesAllAreas : false
       })
     });
     setEditLoading(false);
@@ -138,7 +164,9 @@ export default function UsersManager({
                 <td className="px-4 py-2.5">{u.name}</td>
                 <td className="px-4 py-2.5">{u.email}</td>
                 <td className="px-4 py-2.5">{ROLE_LABELS[u.role]}</td>
-                <td className="px-4 py-2.5">{u.area ? AREA_LABELS[u.area] : "—"}</td>
+                <td className="px-4 py-2.5">
+                  {u.seesAllAreas ? "Todas" : u.area ? u.area.name : "—"}
+                </td>
                 <td className="px-4 py-2.5 text-xs text-slate-400">
                   {new Date(u.createdAt).toLocaleDateString("es-ES")}
                 </td>
@@ -188,15 +216,30 @@ export default function UsersManager({
               </select>
             </div>
             {role === "MEMBER" && (
-              <div>
-                <label className="mb-1 block text-sm font-medium">Área</label>
-                <select className="input" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
-                  <option value="">Sin área</option>
-                  {Object.entries(AREA_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Área</label>
+                  <select
+                    className="input"
+                    value={areaId}
+                    onChange={(e) => setAreaId(e.target.value)}
+                    disabled={seesAllAreas}
+                  >
+                    <option value="">Sin área</option>
+                    {areas.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={seesAllAreas}
+                    onChange={(e) => setSeesAllAreas(e.target.checked)}
+                  />
+                  Ve todas las áreas (Todos)
+                </label>
+              </>
             )}
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
@@ -248,19 +291,30 @@ export default function UsersManager({
               )}
             </div>
             {editRole === "MEMBER" && (
-              <div>
-                <label className="mb-1 block text-sm font-medium">Área</label>
-                <select
-                  className="input"
-                  value={editArea}
-                  onChange={(e) => setEditArea(e.target.value as TaskArea | "")}
-                >
-                  <option value="">Sin área</option>
-                  {Object.entries(AREA_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div>
+                  <label className="mb-1 block text-sm font-medium">Área</label>
+                  <select
+                    className="input"
+                    value={editAreaId}
+                    onChange={(e) => setEditAreaId(e.target.value)}
+                    disabled={editSeesAllAreas}
+                  >
+                    <option value="">Sin área</option>
+                    {areas.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={editSeesAllAreas}
+                    onChange={(e) => setEditSeesAllAreas(e.target.checked)}
+                  />
+                  Ve todas las áreas (Todos)
+                </label>
+              </>
             )}
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
