@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { recalculateTaskPriorities } from "@/lib/autoPriority";
-import { canManageProjectTasks } from "@/lib/taskAccess";
+import { visibleProjectTasks } from "@/lib/taskAccess";
 import ReportsView from "./ReportsView";
 
 export default async function ReportsPage() {
@@ -36,14 +36,12 @@ export default async function ReportsPage() {
   // tiene) o si no las que tiene asignadas; el dueño de ese proyecto, los
   // administradores y el gerente ven las de todos.
   const data = projects.map((p) => {
-    const canManage = canManageProjectTasks(p, user.userId, user.role);
-    const visibleTasks = canManage
-      ? p.tasks
-      : p.tasks.filter((t) =>
-          user.area && t.area
-            ? t.area === user.area
-            : t.assignees.some((a) => a.user.id === user.userId)
-        );
+    const visibleTasks = visibleProjectTasks(
+      p.tasks,
+      p,
+      { userId: user.userId, role: user.role, areaId: user.areaId, seesAllAreas: user.seesAllAreas },
+      (t) => t.assignees.some((a) => a.user.id === user.userId)
+    );
     return {
       id: p.id,
       name: p.name,
