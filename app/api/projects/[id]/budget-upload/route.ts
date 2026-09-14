@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { PHASE_LABELS, AREA_LABELS, TaskPhase, TaskArea } from "@/lib/types";
+import { PHASE_LABELS, TaskPhase } from "@/lib/types";
 
 function findEnumKeyByLabel<T extends string>(labels: Record<T, string>, value: unknown): T | undefined {
   if (typeof value !== "string" || !value.trim()) return undefined;
@@ -36,6 +36,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const validTaskIds = new Set(project.tasks.map((t) => t.id));
 
+  // Se cargan las áreas una sola vez (no por fila) para emparejar por
+  // nombre el texto de la columna "Área" contra la tabla dinámica.
+  const areas = await prisma.area.findMany();
+
   const bytes = await req.arrayBuffer();
   let workbook: XLSX.WorkBook;
   try {
@@ -67,8 +71,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const phaseKey = findEnumKeyByLabel<TaskPhase>(PHASE_LABELS, row["Fase"]);
     if (phaseKey) data.phase = phaseKey;
 
-    const areaKey = findEnumKeyByLabel<TaskArea>(AREA_LABELS, row["Área"]);
-    if (areaKey) data.area = areaKey;
+    const matchedArea = areas.find(
+      (a) => a.name.trim().toLowerCase() === String(row["Área"] ?? "").trim().toLowerCase()
+    );
+    if (matchedArea) data.areaId = matchedArea.id;
 
     try {
       await prisma.task.update({ where: { id }, data });
