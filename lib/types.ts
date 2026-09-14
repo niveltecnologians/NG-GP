@@ -1,5 +1,9 @@
 export type UserLite = { id: string; name: string; email: string };
 
+// Miembro del equipo de trabajo (sin acceso al sistema) de quien creó o
+// edita la tarea: solo nombre y cargo.
+export type TeamMemberLite = { id: string; name: string; title: string | null };
+
 export type Attachment = {
   id: string;
   filename: string;
@@ -80,6 +84,7 @@ export type Task = {
   dueDate: string | null;
   projectId: string;
   assignees: UserLite[];
+  teamAssignees: TeamMemberLite[];
   createdBy: UserLite | null;
   attachments: Attachment[];
   subtasks: SubTask[];
