@@ -4,14 +4,14 @@ import { getCurrentUser } from "@/lib/session";
 import { hashPassword } from "@/lib/auth";
 
 const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD", "GERENTE"];
-const VALID_AREAS = ["CARPINTERIA", "REDES", "ARQUITECTURA", "OBRA_CIVIL"];
 
 const USER_LIST_SELECT = {
   id: true,
   name: true,
   email: true,
   role: true,
-  area: true,
+  area: { select: { id: true, name: true, colorKey: true } },
+  seesAllAreas: true,
   createdAt: true
 } as const;
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Solo un administrador puede crear usuarios" }, { status: 403 });
   }
 
-  const { name, email, password, role, area } = await req.json();
+  const { name, email, password, role, areaId, seesAllAreas } = await req.json();
   if (!name || !email || !password) {
     return NextResponse.json({ error: "Nombre, email y contraseña son obligatorios" }, { status: 400 });
   }
@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ya existe una cuenta con ese email" }, { status: 409 });
   }
 
+  let validAreaId: string | null = null;
+  if (areaId) {
+    const area = await prisma.area.findUnique({ where: { id: areaId } });
+    if (!area) return NextResponse.json({ error: "El área elegida ya no existe" }, { status: 400 });
+    validAreaId = area.id;
+  }
+
   const passwordHash = await hashPassword(password);
   const created = await prisma.user.create({
     data: {
@@ -56,7 +63,8 @@ export async function POST(req: NextRequest) {
       email,
       passwordHash,
       role: VALID_ROLES.includes(role) ? role : "MEMBER",
-      area: VALID_AREAS.includes(area) ? area : null
+      areaId: validAreaId,
+      seesAllAreas: Boolean(seesAllAreas)
     },
     select: USER_LIST_SELECT
   });
