@@ -60,7 +60,14 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   const reports = await prisma.progressReport.findMany({
     where: { projectId: params.id, status: "PUBLISHED" },
-    select: { title: true, body: true, reportDate: true, progress: true, area: { select: { name: true } } },
+    select: {
+      title: true,
+      body: true,
+      reportDate: true,
+      progress: true,
+      area: { select: { name: true } },
+      photos: { select: { url: true, filename: true, caption: true }, orderBy: { order: "asc" } }
+    },
     orderBy: { reportDate: "asc" }
   });
 
@@ -72,7 +79,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
       title: r.title,
       body: r.body,
       reportDate: r.reportDate,
-      progress: r.progress
+      progress: r.progress,
+      photos: r.photos
     })),
     ai
   );
