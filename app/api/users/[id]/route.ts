@@ -4,10 +4,19 @@ import { getCurrentUser } from "@/lib/session";
 import { hashPassword } from "@/lib/auth";
 
 const VALID_ROLES = ["ADMIN", "MEMBER", "CONTABILIDAD", "GERENTE"];
-const VALID_AREAS = ["CARPINTERIA", "REDES", "ARQUITECTURA", "OBRA_CIVIL"];
 
-// Un administrador puede editar el nombre, correo, contraseña, rol y área
-// de cualquier usuario (incluido a sí mismo).
+const USER_LIST_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  area: { select: { id: true, name: true, colorKey: true } },
+  seesAllAreas: true,
+  createdAt: true
+} as const;
+
+// Un administrador puede editar el nombre, correo, contraseña, rol, área
+// (o si ve todas las áreas) de cualquier usuario (incluido a sí mismo).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
@@ -18,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const target = await prisma.user.findUnique({ where: { id: params.id } });
   if (!target) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
 
-  const { name, email, password, role, area } = await req.json();
+  const { name, email, password, role, areaId, seesAllAreas } = await req.json();
   const data: Record<string, unknown> = {};
 
   if (name !== undefined) {
@@ -49,14 +58,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.role = VALID_ROLES.includes(role) ? role : "MEMBER";
   }
 
-  if (area !== undefined) {
-    data.area = VALID_AREAS.includes(area) ? area : null;
+  if (areaId !== undefined) {
+    if (areaId === null) {
+      data.areaId = null;
+    } else {
+      const area = await prisma.area.findUnique({ where: { id: areaId } });
+      if (!area) return NextResponse.json({ error: "El área elegida ya no existe" }, { status: 400 });
+      data.areaId = area.id;
+    }
+  }
+
+  if (seesAllAreas !== undefined) {
+    data.seesAllAreas = Boolean(seesAllAreas);
   }
 
   const updated = await prisma.user.update({
     where: { id: params.id },
     data,
-    select: { id: true, name: true, email: true, role: true, area: true, createdAt: true }
+    select: USER_LIST_SELECT
   });
 
   return NextResponse.json({ ...updated, createdAt: updated.createdAt.toISOString() });
