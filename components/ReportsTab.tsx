@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { safeBlobPathname } from "@/lib/blobPath";
 import { AreaColorKey, AREA_COLOR_BADGE } from "@/lib/types";
+import { downloadWordDoc, escapeHtml } from "@/lib/wordExport";
 
 type Photo = { id: string; url: string; filename: string; caption: string | null; order: number };
 
@@ -57,6 +58,7 @@ export default function ReportsTab({
 
   // Solo puede crear informes quien administra todo el proyecto, o quien
   // tiene un área de trabajo asignada (para el informe de su propia área).
+  // No hay límite: se pueden crear todos los informes que hagan falta.
   const canCreate = canManage || !!userAreaId;
   const ownArea = areas.find((a) => a.id === userAreaId) || null;
 
@@ -226,6 +228,25 @@ export default function ReportsTab({
     setReports((prev) => prev.filter((r) => r.id !== reportId));
   }
 
+  // Descarga el informe como archivo de Word (.doc), con el texto y las
+  // fotos incluidas, para que se pueda editar después fuera de NG-GP.
+  function handleExportWord(report: Report) {
+    const metaParts = [formatDate(report.reportDate), report.area ? report.area.name : "General"];
+    if (report.progress !== null) metaParts.push(`Avance ${report.progress}%`);
+
+    let html = `<h1>${escapeHtml(report.title)}</h1>`;
+    html += `<p class="meta">${escapeHtml(metaParts.join(" · "))}</p>`;
+    if (report.body) {
+      html += `<p>${escapeHtml(report.body).replace(/\n/g, "<br>")}</p>`;
+    }
+    report.photos.forEach((photo) => {
+      html += `<img src="${photo.url}" alt="${escapeHtml(photo.caption || photo.filename)}">`;
+      if (photo.caption) html += `<p class="caption">${escapeHtml(photo.caption)}</p>`;
+    });
+
+    downloadWordDoc(report.title, report.title, html);
+  }
+
   if (loading) return <p className="text-sm text-slate-400">Cargando informes...</p>;
 
   return (
@@ -311,7 +332,8 @@ export default function ReportsTab({
           </div>
 
           <p className="text-xs text-slate-400">
-            Después de crearlo puedes cargarle las fotos, todas de una vez.
+            Después de crearlo puedes cargarle las fotos, todas de una vez. No hay límite: puedes crear
+            todos los informes que necesites.
           </p>
         </form>
       )}
@@ -359,19 +381,24 @@ export default function ReportsTab({
                 </p>
               </div>
 
-              {manageThis && (
-                <div className="flex flex-wrap gap-2">
-                  <button className="btn-secondary" onClick={() => togglePublish(report)}>
-                    {report.status === "PUBLISHED" ? "Despublicar" : "Publicar"}
-                  </button>
-                  <button
-                    className="btn-secondary text-red-600 hover:bg-red-50"
-                    onClick={() => handleDeleteReport(report.id)}
-                  >
-                    Borrar
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-secondary" onClick={() => handleExportWord(report)}>
+                  Descargar Word
+                </button>
+                {manageThis && (
+                  <>
+                    <button className="btn-secondary" onClick={() => togglePublish(report)}>
+                      {report.status === "PUBLISHED" ? "Despublicar" : "Publicar"}
+                    </button>
+                    <button
+                      className="btn-secondary text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteReport(report.id)}
+                    >
+                      Borrar
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {report.body && (
