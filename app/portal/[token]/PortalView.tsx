@@ -17,6 +17,8 @@ type BudgetItem = { id: string; concept: string; amount: number; executed: numbe
 
 type ScheduleTask = { id: string; title: string; startDate: string | null; dueDate: string | null; progress: number };
 
+type DeliveryManual = { content: string; updatedAt: string };
+
 const money = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -40,7 +42,7 @@ function formatShortDate(iso: string) {
   });
 }
 
-type View = "avance" | "fotos" | "cronograma" | "presupuesto";
+type View = "avance" | "fotos" | "cronograma" | "presupuesto" | "manual";
 
 export default function PortalView({
   clientName,
@@ -50,7 +52,8 @@ export default function PortalView({
   budgetItems,
   showBudget,
   scheduleTasks,
-  showSchedule
+  showSchedule,
+  deliveryManual
 }: {
   clientName: string;
   projectName: string;
@@ -60,6 +63,7 @@ export default function PortalView({
   showBudget: boolean;
   scheduleTasks: ScheduleTask[];
   showSchedule: boolean;
+  deliveryManual: DeliveryManual | null;
 }) {
   const [view, setView] = useState<View>("avance");
   const [lightbox, setLightbox] = useState<PortalPhoto | null>(null);
@@ -88,6 +92,7 @@ export default function PortalView({
   const tabs: { key: View; label: string }[] = [
     { key: "avance", label: "Avance de obra" },
     { key: "fotos", label: `Registro fotográfico${allPhotos.length ? ` (${allPhotos.length})` : ""}` },
+    ...(deliveryManual ? [{ key: "manual" as View, label: "Manual de entrega" }] : []),
     ...(showSchedule ? [{ key: "cronograma" as View, label: "Cronograma" }] : []),
     ...(showBudget ? [{ key: "presupuesto" as View, label: "Presupuesto" }] : [])
   ];
@@ -214,6 +219,16 @@ export default function PortalView({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {view === "manual" && deliveryManual && (
+        <div className="card p-6">
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold">Manual de entrega</h2>
+            <span className="text-xs text-slate-400">Actualizado {formatDate(deliveryManual.updatedAt)}</span>
+          </div>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{deliveryManual.content}</p>
         </div>
       )}
 
