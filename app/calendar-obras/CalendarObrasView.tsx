@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   TaskStatus,
   TaskPriority,
-  TaskArea,
-  AREA_LABELS,
-  AREA_BADGE_COLORS,
-  AREA_BORDER_COLORS
+  AreaLite,
+  AreaColorKey,
+  AREA_COLOR_BADGE,
+  AREA_COLOR_BORDER
 } from "@/lib/types";
 import { getDueState } from "@/lib/taskDates";
 
@@ -17,7 +17,8 @@ export type CalendarTask = {
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
-  area: TaskArea | null;
+  areaId: string | null;
+  area: AreaLite | null;
   startDate: string | null;
   dueDate: string | null;
   projectId: string;
@@ -65,15 +66,23 @@ export default function CalendarObrasView({ obras, tasks, hasOwnTeam }: Props) {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [obraId, setObraId] = useState<string>("ALL");
-  const [area, setArea] = useState<TaskArea | "">("");
+  const [areas, setAreas] = useState<{ id: string; name: string; colorKey: AreaColorKey }[]>([]);
+  const [area, setArea] = useState<string>("");
   const [onlyMyTeam, setOnlyMyTeam] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/areas")
+      .then((r) => r.json())
+      .then(setAreas)
+      .catch(() => {});
+  }, []);
 
   const filtered = useMemo(
     () =>
       tasks.filter(
         (t) =>
           (obraId === "ALL" || t.projectId === obraId) &&
-          (!area || t.area === area) &&
+          (!area || t.areaId === area) &&
           (!onlyMyTeam || t.isMyTeam)
       ),
     [tasks, obraId, area, onlyMyTeam]
@@ -136,11 +145,11 @@ export default function CalendarObrasView({ obras, tasks, hasOwnTeam }: Props) {
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-slate-500">Área</label>
-          <select className="input" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
+          <select className="input" value={area} onChange={(e) => setArea(e.target.value)}>
             <option value="">Todas las áreas</option>
-            {Object.entries(AREA_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
               </option>
             ))}
           </select>
@@ -195,7 +204,7 @@ export default function CalendarObrasView({ obras, tasks, hasOwnTeam }: Props) {
                         href={`/projects/${task.projectId}`}
                         title={`${task.projectName}: ${task.title}${who(task) ? " — " + who(task) : ""}`}
                         className={`block truncate rounded px-1 py-0.5 text-[10px] leading-tight hover:opacity-80 ${
-                          task.area ? `border-l-2 ${AREA_BORDER_COLORS[task.area]}` : ""
+                          task.area ? `border-l-2 ${AREA_COLOR_BORDER[task.area.colorKey]}` : ""
                         } ${
                           dueState === "overdue"
                             ? "bg-red-50 text-red-700"
@@ -227,7 +236,7 @@ export default function CalendarObrasView({ obras, tasks, hasOwnTeam }: Props) {
                 <Link href={`/projects/${t.projectId}`} className="text-sm text-brand-600 hover:underline">
                   {t.projectName}: {t.title}
                 </Link>
-                {t.area && <span className={`badge ml-2 ${AREA_BADGE_COLORS[t.area]}`}>{AREA_LABELS[t.area]}</span>}
+                {t.area && <span className={`badge ml-2 ${AREA_COLOR_BADGE[t.area.colorKey]}`}>{t.area.name}</span>}
                 {t.isMyTeam && <span className="ml-2 text-xs text-slate-400">👥 mi equipo</span>}
               </li>
             ))}
@@ -241,4 +250,3 @@ export default function CalendarObrasView({ obras, tasks, hasOwnTeam }: Props) {
     </div>
   );
 }
-
