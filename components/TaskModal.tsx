@@ -13,6 +13,7 @@ import {
   SubTask,
   ChecklistItem,
   TaskComment,
+  TeamMemberLite,
   STATUS_LABELS,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
@@ -44,6 +45,8 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
   const [phase, setPhase] = useState<TaskPhase | "">(task?.phase || "");
   const [budget, setBudget] = useState(task?.budget !== null && task?.budget !== undefined ? String(task.budget) : "");
   const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignees.map((a) => a.id) || []);
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>(task?.teamAssignees.map((t) => t.id) || []);
+  const [ownTeamMembers, setOwnTeamMembers] = useState<TeamMemberLite[]>([]);
   const [startDate, setStartDate] = useState(task?.startDate ? task.startDate.slice(0, 10) : "");
   const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.slice(0, 10) : "");
   const [dependsOnIds, setDependsOnIds] = useState<string[]>(task?.dependsOn.map((d) => d.id) || []);
@@ -55,9 +58,22 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
     setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
+  function toggleTeamMember(id: string) {
+    setTeamMemberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
   function toggleDependsOn(id: string) {
     setDependsOnIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
+
+  useEffect(() => {
+    fetch("/api/team-members")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setOwnTeamMembers(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const [subtasks, setSubtasks] = useState<SubTask[]>(task?.subtasks || []);
   const [newSubtask, setNewSubtask] = useState("");
@@ -306,6 +322,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           description,
           projectId,
           assigneeIds,
+          teamMemberIds,
           priority,
           area: area || null,
           phase: phase || null,
@@ -338,6 +355,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           phase: phase || null,
           budget: budget === "" ? null : Number(budget),
           assigneeIds,
+          teamMemberIds,
           startDate,
           dueDate,
           dependsOnIds
@@ -523,6 +541,36 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
             <p className="mt-1 text-xs text-slate-400">Puedes marcar más de una persona.</p>
           </div>
         </div>
+
+        {ownTeamMembers.length > 0 && (
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Mi equipo
+              {teamMemberIds.length > 0 && (
+                <span className="ml-1 font-normal text-slate-400">({teamMemberIds.length})</span>
+              )}
+            </label>
+            <div className="max-h-24 space-y-0.5 overflow-y-auto rounded-md border border-slate-300 p-1.5">
+              {ownTeamMembers.map((tm) => (
+                <label
+                  key={tm.id}
+                  className="flex items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={teamMemberIds.includes(tm.id)}
+                    onChange={() => toggleTeamMember(tm.id)}
+                  />
+                  <span className="truncate">
+                    {tm.name}
+                    {tm.title ? ` · ${tm.title}` : ""}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-slate-400">Colaboradores de tu equipo (sin acceso al sistema).</p>
+          </div>
+        )}
 
         <div>
           <label className="mb-1 block text-sm font-medium">
