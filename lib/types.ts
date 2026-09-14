@@ -4,6 +4,29 @@ export type UserLite = { id: string; name: string; email: string };
 // edita la tarea: solo nombre y cargo.
 export type TeamMemberLite = { id: string; name: string; title: string | null };
 
+// Paleta fija de colores que puede tener un área (ver AreaLite más abajo).
+// Es fija porque Tailwind necesita ver el nombre completo de cada clase
+// escrito literalmente en el código para poder generarla; no se puede
+// armar un nombre de clase a partir de un color guardado en la base de
+// datos. Un área nueva elige uno de estos colores, no cualquiera.
+export type AreaColorKey =
+  | "yellow"
+  | "red"
+  | "blue"
+  | "green"
+  | "purple"
+  | "orange"
+  | "pink"
+  | "teal"
+  | "cyan"
+  | "slate";
+
+// Área/oficio de trabajo. Ahora es editable desde el panel de
+// administración (Áreas de trabajo) en vez de una lista fija en el
+// código: cada obra/tarea/usuario se relaciona con una fila real de la
+// tabla Area, con nombre libre y un color de la paleta de arriba.
+export type AreaLite = { id: string; name: string; colorKey: AreaColorKey };
+
 export type Attachment = {
   id: string;
   filename: string;
@@ -52,7 +75,6 @@ export type TaskStatus =
   | "LIQUIDACION"
   | "POSVENTA";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-export type TaskArea = "CARPINTERIA" | "REDES" | "ARQUITECTURA" | "OBRA_CIVIL";
 
 // Fase del proceso de la actividad (independiente del estado del tablero):
 // en qué parte del proceso general de la obra está esa tarea puntual.
@@ -89,7 +111,7 @@ export type Task = {
   attachments: Attachment[];
   subtasks: SubTask[];
   checklist: ChecklistItem[];
-  area: TaskArea | null;
+  area: AreaLite | null;
   phase: TaskPhase | null;
   budget: number | null;
   dependsOn: TaskDependencyRef[];
@@ -148,27 +170,58 @@ export const PRIORITY_COLORS: Record<TaskPriority, string> = {
   URGENT: "bg-red-100 text-red-700"
 };
 
-// Área/oficio de la tarea: cada una tiene un color fijo, asignado solo por
-// elegir el área (no se elige el color a mano).
-export const AREA_LABELS: Record<TaskArea, string> = {
-  CARPINTERIA: "Carpintería",
-  REDES: "Redes",
-  ARQUITECTURA: "Arquitectura",
-  OBRA_CIVIL: "Obra Civil"
+// Etiqueta en español de cada color de la paleta fija (para el selector de
+// color al crear/editar un área).
+export const AREA_COLOR_LABELS: Record<AreaColorKey, string> = {
+  yellow: "Amarillo",
+  red: "Rojo",
+  blue: "Azul",
+  green: "Verde",
+  purple: "Morado",
+  orange: "Naranja",
+  pink: "Rosado",
+  teal: "Verde azulado",
+  cyan: "Celeste",
+  slate: "Gris"
 };
 
-export const AREA_BADGE_COLORS: Record<TaskArea, string> = {
-  CARPINTERIA: "bg-yellow-100 text-yellow-700",
-  REDES: "bg-red-100 text-red-700",
-  ARQUITECTURA: "bg-blue-100 text-blue-700",
-  OBRA_CIVIL: "bg-green-100 text-green-700"
+export const AREA_COLOR_BADGE: Record<AreaColorKey, string> = {
+  yellow: "bg-yellow-100 text-yellow-700",
+  red: "bg-red-100 text-red-700",
+  blue: "bg-blue-100 text-blue-700",
+  green: "bg-green-100 text-green-700",
+  purple: "bg-purple-100 text-purple-700",
+  orange: "bg-orange-100 text-orange-700",
+  pink: "bg-pink-100 text-pink-700",
+  teal: "bg-teal-100 text-teal-700",
+  cyan: "bg-cyan-100 text-cyan-700",
+  slate: "bg-slate-100 text-slate-600"
 };
 
-export const AREA_BORDER_COLORS: Record<TaskArea, string> = {
-  CARPINTERIA: "border-l-yellow-400",
-  REDES: "border-l-red-400",
-  ARQUITECTURA: "border-l-blue-400",
-  OBRA_CIVIL: "border-l-green-400"
+export const AREA_COLOR_BORDER: Record<AreaColorKey, string> = {
+  yellow: "border-l-yellow-400",
+  red: "border-l-red-400",
+  blue: "border-l-blue-400",
+  green: "border-l-green-400",
+  purple: "border-l-purple-400",
+  orange: "border-l-orange-400",
+  pink: "border-l-pink-400",
+  teal: "border-l-teal-400",
+  cyan: "border-l-cyan-400",
+  slate: "border-l-slate-400"
+};
+
+export const AREA_COLOR_DOT: Record<AreaColorKey, string> = {
+  yellow: "bg-yellow-400",
+  red: "bg-red-400",
+  blue: "bg-blue-400",
+  green: "bg-green-400",
+  purple: "bg-purple-400",
+  orange: "bg-orange-400",
+  pink: "bg-pink-400",
+  teal: "bg-teal-400",
+  cyan: "bg-cyan-400",
+  slate: "bg-slate-400"
 };
 
 // Fase de la actividad dentro del proceso general (independiente del
