@@ -70,7 +70,8 @@ export default async function ProjectPage({ params }: { params: { id: string } }
       })),
       checklist: t.checklist.map((i) => ({ ...i, createdAt: i.createdAt.toISOString() })),
       dependsOn: t.dependsOn.map((d) => d.dependsOn),
-      assignees: t.assignees.map((a) => a.user)
+      assignees: t.assignees.map((a) => a.user),
+      teamAssignees: t.teamAssignees.map((ta) => ta.teamMember)
     }))
   };
 
