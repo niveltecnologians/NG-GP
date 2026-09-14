@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { safeBlobPathname } from "@/lib/blobPath";
+import { AreaColorKey, AREA_COLOR_BADGE } from "@/lib/types";
 
 type Photo = { id: string; url: string; filename: string; caption: string | null; order: number };
+
+type ReportArea = { id: string; name: string; colorKey: AreaColorKey };
 
 type Report = {
   id: string;
@@ -14,8 +17,11 @@ type Report = {
   progress: number | null;
   status: "DRAFT" | "PUBLISHED";
   author: { id: string; name: string } | null;
+  area: ReportArea | null;
   photos: Photo[];
 };
+
+type AreaOption = { id: string; name: string; colorKey: AreaColorKey };
 
 function todayInput() {
   // Fecha de hoy en Colombia, en el formato que espera <input type="date">.
@@ -34,20 +40,32 @@ function formatDate(iso: string) {
 
 export default function ReportsTab({
   projectId,
-  canManage
+  canManage,
+  areas,
+  userAreaId,
+  currentUserId
 }: {
   projectId: string;
   canManage: boolean;
+  areas: AreaOption[];
+  userAreaId: string | null;
+  currentUserId: string;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Solo puede crear informes quien administra todo el proyecto, o quien
+  // tiene un área de trabajo asignada (para el informe de su propia área).
+  const canCreate = canManage || !!userAreaId;
+  const ownArea = areas.find((a) => a.id === userAreaId) || null;
 
   // Formulario del informe nuevo
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [date, setDate] = useState(todayInput());
   const [progress, setProgress] = useState("");
+  const [areaId, setAreaId] = useState<string>(canManage ? "" : userAreaId || "");
   const [publish, setPublish] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +88,15 @@ export default function ReportsTab({
     return `Registro fotográfico ${n}`;
   }, [reports.length]);
 
+  // Puede administrar (editar, publicar/despublicar, borrar, cargar fotos)
+  // este informe puntual: quien administra todo el proyecto, quien tiene la
+  // misma área del informe, o quien lo escribió.
+  function canManageReport(report: Report) {
+    if (canManage) return true;
+    if (userAreaId && report.area?.id === userAreaId) return true;
+    return report.author?.id === currentUserId;
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -83,7 +110,8 @@ export default function ReportsTab({
         body,
         reportDate: date,
         progress: progress === "" ? null : progress,
-        status: publish ? "PUBLISHED" : "DRAFT"
+        status: publish ? "PUBLISHED" : "DRAFT",
+        areaId: canManage ? areaId || null : userAreaId
       })
     });
 
@@ -100,6 +128,7 @@ export default function ReportsTab({
     setBody("");
     setProgress("");
     setDate(todayInput());
+    if (canManage) setAreaId("");
   }
 
   // Carga masiva: se escogen varias fotos de una vez y se suben una tras otra
@@ -203,7 +232,7 @@ export default function ReportsTab({
     <div className="space-y-6">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
-      {canManage && (
+      {canCreate && (
         <form onSubmit={handleCreate} className="card space-y-3 p-5">
           <h2 className="text-lg font-semibold">Nuevo informe del día</h2>
 
@@ -238,6 +267,22 @@ export default function ReportsTab({
                 placeholder="—"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">Área</label>
+            {canManage ? (
+              <select className="input" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+                <option value="">General (sin área)</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                {ownArea ? ownArea.name : "Sin área"} — este informe queda registrado con tu área de trabajo.
+              </p>
+            )}
           </div>
 
           <div>
@@ -277,121 +322,131 @@ export default function ReportsTab({
         </p>
       )}
 
-      {reports.map((report) => (
-        <article key={report.id} className="card p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-semibold">{report.title}</h3>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    report.status === "PUBLISHED"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-amber-50 text-amber-700"
-                  }`}
-                >
-                  {report.status === "PUBLISHED" ? "Publicado" : "Borrador"}
-                </span>
-                {report.progress !== null && (
-                  <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                    Avance {report.progress}%
+      {reports.map((report) => {
+        const manageThis = canManageReport(report);
+        return (
+          <article key={report.id} className="card p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-base font-semibold">{report.title}</h3>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      report.status === "PUBLISHED"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {report.status === "PUBLISHED" ? "Publicado" : "Borrador"}
                   </span>
-                )}
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      report.area ? AREA_COLOR_BADGE[report.area.colorKey] : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {report.area ? report.area.name : "General"}
+                  </span>
+                  {report.progress !== null && (
+                    <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+                      Avance {report.progress}%
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  {formatDate(report.reportDate)}
+                  {report.author && ` · ${report.author.name}`}
+                  {` · ${report.photos.length} foto${report.photos.length === 1 ? "" : "s"}`}
+                </p>
               </div>
-              <p className="mt-1 text-xs text-slate-400">
-                {formatDate(report.reportDate)}
-                {report.author && ` · ${report.author.name}`}
-                {` · ${report.photos.length} foto${report.photos.length === 1 ? "" : "s"}`}
-              </p>
+
+              {manageThis && (
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-secondary" onClick={() => togglePublish(report)}>
+                    {report.status === "PUBLISHED" ? "Despublicar" : "Publicar"}
+                  </button>
+                  <button
+                    className="btn-secondary text-red-600 hover:bg-red-50"
+                    onClick={() => handleDeleteReport(report.id)}
+                  >
+                    Borrar
+                  </button>
+                </div>
+              )}
             </div>
 
-            {canManage && (
-              <div className="flex flex-wrap gap-2">
-                <button className="btn-secondary" onClick={() => togglePublish(report)}>
-                  {report.status === "PUBLISHED" ? "Despublicar" : "Publicar"}
-                </button>
+            {report.body && (
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                {report.body}
+              </p>
+            )}
+
+            {manageThis && (
+              <div className="mt-4">
+                <input
+                  ref={(el) => {
+                    fileInputs.current[report.id] = el;
+                  }}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handlePhotos(report.id, e)}
+                />
                 <button
-                  className="btn-secondary text-red-600 hover:bg-red-50"
-                  onClick={() => handleDeleteReport(report.id)}
+                  className="btn-secondary"
+                  disabled={uploadingTo !== null}
+                  onClick={() => fileInputs.current[report.id]?.click()}
                 >
-                  Borrar
+                  {uploadingTo === report.id
+                    ? `Subiendo ${uploadProgress.done}/${uploadProgress.total}...`
+                    : "+ Cargar fotos"}
                 </button>
               </div>
             )}
-          </div>
 
-          {report.body && (
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-              {report.body}
-            </p>
-          )}
-
-          {canManage && (
-            <div className="mt-4">
-              <input
-                ref={(el) => {
-                  fileInputs.current[report.id] = el;
-                }}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => handlePhotos(report.id, e)}
-              />
-              <button
-                className="btn-secondary"
-                disabled={uploadingTo !== null}
-                onClick={() => fileInputs.current[report.id]?.click()}
-              >
-                {uploadingTo === report.id
-                  ? `Subiendo ${uploadProgress.done}/${uploadProgress.total}...`
-                  : "+ Cargar fotos"}
-              </button>
-            </div>
-          )}
-
-          {report.photos.length > 0 && (
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {report.photos.map((photo) => (
-                <div key={photo.id} className="group relative overflow-hidden rounded-lg bg-slate-100">
-                  <a href={photo.url} target="_blank" rel="noopener noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.url}
-                      alt={photo.caption || photo.filename}
-                      loading="lazy"
-                      className="aspect-square w-full object-cover"
-                    />
-                  </a>
-                  {photo.caption && (
-                    <p className="truncate bg-white px-2 py-1 text-[11px] text-slate-600">
-                      {photo.caption}
-                    </p>
-                  )}
-                  {canManage && (
-                    <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100">
-                      <button
-                        onClick={() => handleCaption(report.id, photo)}
-                        className="rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white hover:bg-black/80"
-                        title="Editar descripción"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeletePhoto(report.id, photo.id)}
-                        className="rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white hover:bg-red-600"
-                        title="Borrar foto"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-      ))}
+            {report.photos.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {report.photos.map((photo) => (
+                  <div key={photo.id} className="group relative overflow-hidden rounded-lg bg-slate-100">
+                    <a href={photo.url} target="_blank" rel="noopener noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photo.url}
+                        alt={photo.caption || photo.filename}
+                        loading="lazy"
+                        className="aspect-square w-full object-cover"
+                      />
+                    </a>
+                    {photo.caption && (
+                      <p className="truncate bg-white px-2 py-1 text-[11px] text-slate-600">
+                        {photo.caption}
+                      </p>
+                    )}
+                    {manageThis && (
+                      <div className="absolute right-1 top-1 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                        <button
+                          onClick={() => handleCaption(report.id, photo)}
+                          className="rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white hover:bg-black/80"
+                          title="Editar descripción"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDeletePhoto(report.id, photo.id)}
+                          className="rounded bg-black/60 px-1.5 py-0.5 text-[11px] text-white hover:bg-red-600"
+                          title="Borrar foto"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </article>
+        );
+      })}
     </div>
   );
 }
