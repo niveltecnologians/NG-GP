@@ -66,8 +66,8 @@ export default function UsersManager({
         email,
         password,
         role,
-        areaId: role === "MEMBER" ? areaId || null : null,
-        seesAllAreas: role === "MEMBER" ? seesAllAreas : false
+        areaId: areaId || null,
+        seesAllAreas
       })
     });
     setLoading(false);
@@ -123,8 +123,8 @@ export default function UsersManager({
         email: editEmail,
         password: editPassword || undefined,
         role: editRole,
-        areaId: editRole === "MEMBER" ? editAreaId || null : null,
-        seesAllAreas: editRole === "MEMBER" ? editSeesAllAreas : false
+        areaId: editAreaId || null,
+        seesAllAreas: editSeesAllAreas
       })
     });
     setEditLoading(false);
@@ -215,32 +215,28 @@ export default function UsersManager({
                 <option value="GERENTE">Gerente</option>
               </select>
             </div>
-            {role === "MEMBER" && (
-              <>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Área</label>
-                  <select
-                    className="input"
-                    value={areaId}
-                    onChange={(e) => setAreaId(e.target.value)}
-                    disabled={seesAllAreas}
-                  >
-                    <option value="">Sin área</option>
-                    {areas.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={seesAllAreas}
-                    onChange={(e) => setSeesAllAreas(e.target.checked)}
-                  />
-                  Ve todas las áreas (Todos)
-                </label>
-              </>
-            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium">Área</label>
+              <select
+                className="input"
+                value={areaId}
+                onChange={(e) => setAreaId(e.target.value)}
+                disabled={seesAllAreas}
+              >
+                <option value="">Sin área</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={seesAllAreas}
+                onChange={(e) => setSeesAllAreas(e.target.checked)}
+              />
+              Ve todas las áreas (Todos)
+            </label>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
               <button type="submit" disabled={loading} className="btn">{loading ? "Creando..." : "Crear"}</button>
@@ -290,32 +286,28 @@ export default function UsersManager({
                 <p className="mt-1 text-xs text-slate-400">No puedes cambiar tu propio rol.</p>
               )}
             </div>
-            {editRole === "MEMBER" && (
-              <>
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Área</label>
-                  <select
-                    className="input"
-                    value={editAreaId}
-                    onChange={(e) => setEditAreaId(e.target.value)}
-                    disabled={editSeesAllAreas}
-                  >
-                    <option value="">Sin área</option>
-                    {areas.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={editSeesAllAreas}
-                    onChange={(e) => setEditSeesAllAreas(e.target.checked)}
-                  />
-                  Ve todas las áreas (Todos)
-                </label>
-              </>
-            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium">Área</label>
+              <select
+                className="input"
+                value={editAreaId}
+                onChange={(e) => setEditAreaId(e.target.value)}
+                disabled={editSeesAllAreas}
+              >
+                <option value="">Sin área</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editSeesAllAreas}
+                onChange={(e) => setEditSeesAllAreas(e.target.checked)}
+              />
+              Ve todas las áreas (Todos)
+            </label>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
               <button type="submit" disabled={editLoading} className="btn">{editLoading ? "Guardando..." : "Guardar cambios"}</button>
