@@ -64,7 +64,17 @@ export const TASK_TEAM_ASSIGNEES_SELECT = {
   teamMember: { select: { id: true, name: true, title: true, ownerId: true } }
 } as const;
 
+// Área de trabajo de la tarea: se trae como relación (id, nombre y color)
+// en vez del enum viejo, para que cualquier área que se cree quede
+// disponible de inmediato sin tocar código.
+export const AREA_LITE_SELECT = {
+  id: true,
+  name: true,
+  colorKey: true
+} as const;
+
 export const TASK_FULL_INCLUDE = {
+  area: { select: AREA_LITE_SELECT },
   assignees: { select: TASK_ASSIGNEES_SELECT, orderBy: { createdAt: "asc" as const } },
   teamAssignees: { select: TASK_TEAM_ASSIGNEES_SELECT, orderBy: { createdAt: "asc" as const } },
   createdBy: { select: { id: true, name: true, email: true } },
