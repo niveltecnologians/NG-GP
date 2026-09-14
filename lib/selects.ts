@@ -57,8 +57,16 @@ export const TASK_ASSIGNEES_SELECT = {
   user: { select: { id: true, name: true, email: true } }
 } as const;
 
+// Miembros del equipo de trabajo (sin acceso al sistema) asignados a la
+// tarea. Igual que TASK_ASSIGNEES_SELECT pero para TaskTeamMember: se
+// selecciona la fila con el miembro del equipo adentro.
+export const TASK_TEAM_ASSIGNEES_SELECT = {
+  teamMember: { select: { id: true, name: true, title: true, ownerId: true } }
+} as const;
+
 export const TASK_FULL_INCLUDE = {
   assignees: { select: TASK_ASSIGNEES_SELECT, orderBy: { createdAt: "asc" as const } },
+  teamAssignees: { select: TASK_TEAM_ASSIGNEES_SELECT, orderBy: { createdAt: "asc" as const } },
   createdBy: { select: { id: true, name: true, email: true } },
   attachments: { select: ATTACHMENT_LIST_SELECT },
   subtasks: { select: SUBTASK_LIST_SELECT, orderBy: { order: "asc" as const } },
