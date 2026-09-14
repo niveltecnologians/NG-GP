@@ -11,12 +11,14 @@ function serializeTask<
   T extends {
     dependsOn: { dependsOn: { id: string; title: string } }[];
     assignees: { user: { id: string; name: string; email: string } }[];
+    teamAssignees: { teamMember: { id: string; name: string; title: string | null; ownerId: string } }[];
   }
 >(task: T) {
   return {
     ...task,
     dependsOn: task.dependsOn.map((d) => d.dependsOn),
-    assignees: task.assignees.map((a) => a.user)
+    assignees: task.assignees.map((a) => a.user),
+    teamAssignees: task.teamAssignees.map((a) => a.teamMember)
   };
 }
 
@@ -133,6 +135,27 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (validAssigneeIds.length > 0) {
       await prisma.taskAssignee.createMany({
         data: validAssigneeIds.map((userId) => ({ taskId: params.id, userId })),
+        skipDuplicates: true
+      });
+    }
+  }
+
+  // Si vienen miembros del equipo de trabajo nuevos, se reemplaza el
+  // conjunto completo (solo se aceptan ids de miembros del equipo de quien
+  // está editando la tarea).
+  if (Array.isArray(body.teamMemberIds)) {
+    const ownTeamMembers = await prisma.teamMember.findMany({
+      where: { id: { in: body.teamMemberIds }, ownerId: user.userId },
+      select: { id: true }
+    });
+    const validTeamMemberIds = ownTeamMembers.map((tm) => tm.id);
+
+    await prisma.taskTeamMember.deleteMany({
+      where: { taskId: params.id, teamMember: { ownerId: user.userId } }
+    });
+    if (validTeamMemberIds.length > 0) {
+      await prisma.taskTeamMember.createMany({
+        data: validTeamMemberIds.map((teamMemberId) => ({ taskId: params.id, teamMemberId })),
         skipDuplicates: true
       });
     }
