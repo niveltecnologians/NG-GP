@@ -11,9 +11,13 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: "ADMIN" | "MEMBER" | "CONTABILIDAD" | "GERENTE";
-  // Área del usuario (solo aplica a miembros de un área puntual, ej. Redes
-  // o Arquitectura). null si no tiene una asignada.
-  area: "CARPINTERIA" | "REDES" | "ARQUITECTURA" | "OBRA_CIVIL" | null;
+  // Área de trabajo del usuario (id de la tabla Area, editable desde el
+  // panel de administración). null si no tiene una asignada.
+  areaId: string | null;
+  // Si está en true, el usuario ve todas las áreas dentro de los
+  // proyectos de los que es miembro, sin filtrar por área (aunque tenga
+  // una área asignada).
+  seesAllAreas: boolean;
 }
 
 export async function hashPassword(password: string) {
