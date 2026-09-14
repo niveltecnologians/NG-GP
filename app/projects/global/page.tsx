@@ -8,12 +8,12 @@ import {
   STATUS_DOT,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
-  AREA_LABELS,
-  AREA_BADGE_COLORS,
-  AREA_BORDER_COLORS
+  AREA_COLOR_BADGE,
+  AREA_COLOR_BORDER,
+  AreaLite
 } from "@/lib/types";
 import { getDueState } from "@/lib/taskDates";
-import { canManageProjectTasks } from "@/lib/taskAccess";
+import { visibleProjectTasks } from "@/lib/taskAccess";
 
 // Orden de las columnas: primero las del modo "Tareas", después las del
 // modo "Administrativo" (Prospectos, Diseño, Presupuesto, Ejecución,
@@ -59,7 +59,8 @@ export default async function GlobalProjectsPage() {
           title: true,
           status: true,
           priority: true,
-          area: true,
+          areaId: true,
+          area: { select: { id: true, name: true, colorKey: true } },
           dueDate: true,
           assignees: { select: { user: { select: { id: true, name: true } } } },
           subtasks: { select: { done: true } }
@@ -74,7 +75,8 @@ export default async function GlobalProjectsPage() {
     id: string;
     title: string;
     priority: keyof typeof PRIORITY_LABELS;
-    area: keyof typeof AREA_LABELS | null;
+    areaId: string | null;
+    area: AreaLite | null;
     dueDate: Date | null;
     assignees: { id: string; name: string }[];
     subtasks: { done: boolean }[];
@@ -89,14 +91,12 @@ export default async function GlobalProjectsPage() {
   const columns = new Map<TaskStatus, ColumnTask[]>();
   let totalTasks = 0;
   for (const project of projects) {
-    const canManage = canManageProjectTasks(project, user.userId, user.role);
-    const visibleTasks = canManage
-      ? project.tasks
-      : project.tasks.filter((t) =>
-          user.area && t.area
-            ? t.area === user.area
-            : t.assignees.some((a) => a.user.id === user.userId)
-        );
+    const visibleTasks = visibleProjectTasks(
+      project.tasks,
+      project,
+      { userId: user.userId, role: user.role, areaId: user.areaId, seesAllAreas: user.seesAllAreas },
+      (t) => t.assignees.some((a) => a.user.id === user.userId)
+    );
     for (const t of visibleTasks) {
       totalTasks++;
       const status = t.status as TaskStatus;
@@ -168,7 +168,7 @@ export default async function GlobalProjectsPage() {
                       <Link
                         key={t.id}
                         href={`/projects/${t.projectId}`}
-                        className={`card block p-3 ${t.area ? `border-l-4 ${AREA_BORDER_COLORS[t.area]}` : ""}`}
+                        className={`card block p-3 ${t.area ? `border-l-4 ${AREA_COLOR_BORDER[t.area.colorKey]}` : ""}`}
                       >
                         <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-brand-600">
                           {t.projectName}
@@ -177,7 +177,7 @@ export default async function GlobalProjectsPage() {
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <span className={`badge ${PRIORITY_COLORS[t.priority]}`}>{PRIORITY_LABELS[t.priority]}</span>
                           {t.area && (
-                            <span className={`badge ${AREA_BADGE_COLORS[t.area]}`}>{AREA_LABELS[t.area]}</span>
+                            <span className={`badge ${AREA_COLOR_BADGE[t.area.colorKey]}`}>{t.area.name}</span>
                           )}
                           {t.subtasks.length > 0 && (
                             <span className="text-[11px] text-slate-400">
