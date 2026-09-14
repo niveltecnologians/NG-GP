@@ -5,9 +5,8 @@ import {
   Task,
   PRIORITY_COLORS,
   PRIORITY_LABELS,
-  AREA_LABELS,
-  AREA_BADGE_COLORS,
-  AREA_BORDER_COLORS,
+  AREA_COLOR_BADGE,
+  AREA_COLOR_BORDER,
   PHASE_LABELS,
   PHASE_BADGE_COLORS
 } from "@/lib/types";
@@ -59,7 +58,7 @@ export default function TaskCard({
       onDragStart={onDragStart}
       onClick={onClick}
       className={`card-interactive card group cursor-pointer p-3 active:cursor-grabbing ${
-        task.area ? `border-l-4 ${AREA_BORDER_COLORS[task.area]}` : ""
+        task.area ? `border-l-4 ${AREA_COLOR_BORDER[task.area.colorKey]}` : ""
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -90,7 +89,7 @@ export default function TaskCard({
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className={`badge ${PRIORITY_COLORS[task.priority]}`}>{PRIORITY_LABELS[task.priority]}</span>
         {task.area && (
-          <span className={`badge ${AREA_BADGE_COLORS[task.area]}`}>{AREA_LABELS[task.area]}</span>
+          <span className={`badge ${AREA_COLOR_BADGE[task.area.colorKey]}`}>{task.area.name}</span>
         )}
         {task.phase && (
           <span className={`badge ${PHASE_BADGE_COLORS[task.phase]}`}>{PHASE_LABELS[task.phase]}</span>
