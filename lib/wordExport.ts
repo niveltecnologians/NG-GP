@@ -2,9 +2,7 @@
 // Word abre sin problema un archivo HTML guardado con extensión .doc — es
 // el mismo truco que usa Office desde hace años — así que no hace falta
 // ninguna librería aparte para producir archivos de Word de verdad,
-// totalmente editables. Las imágenes van como enlace (<img src="https://...">):
-// Word las descarga al abrir el archivo (hace falta conexión a internet en
-// ese momento) y quedan dentro del documento al guardarlo.
+// totalmente editables.
 export function downloadWordDoc(filename: string, title: string, bodyHtml: string) {
   const html =
     "<!DOCTYPE html>" +
@@ -40,8 +38,29 @@ export function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+// Descarga una imagen y la convierte a data URI (base64), para poder
+// incrustarla directamente dentro del archivo de Word desde el momento en
+// que se descarga. Así el documento no depende de internet ni de que la
+// foto siga existiendo en NG-GP cuando alguien lo abra más adelante. Si
+// una foto puntual no se puede descargar (por ejemplo, sin internet en
+// este momento), se deja como enlace en vez de romper toda la descarga.
+export async function imageUrlToDataUri(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeFilename(name: string) {
   const base = name.replace(/[\\/:*?"<>|]+/g, "").trim() || "documento";
   return base.endsWith(".doc") ? base : `${base}.doc`;
 }
-
