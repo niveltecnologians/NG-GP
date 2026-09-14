@@ -14,7 +14,8 @@ export async function GET() {
       name: true,
       email: true,
       role: true,
-      area: true,
+      area: { select: { id: true, name: true, colorKey: true } },
+      seesAllAreas: true,
       bio: true,
       hasAvatar: true,
       backgroundColor: true,
@@ -42,7 +43,15 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.user.update({
     where: { id: user.userId },
     data,
-    select: { id: true, name: true, email: true, role: true, area: true, bio: true }
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      areaId: true,
+      seesAllAreas: true,
+      bio: true
+    }
   });
 
   const res = NextResponse.json(updated);
@@ -53,7 +62,8 @@ export async function PATCH(req: NextRequest) {
       email: updated.email,
       name: updated.name,
       role: updated.role,
-      area: updated.area
+      areaId: updated.areaId,
+      seesAllAreas: updated.seesAllAreas
     });
     res.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
