@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     startDate,
     dueDate,
     status,
-    area,
+    areaId,
     phase,
     budget,
     dependsOnIds
@@ -71,6 +71,14 @@ export async function POST(req: NextRequest) {
     validTeamMemberIds = ownTeamMembers.map((tm) => tm.id);
   }
 
+  // Si viene un área, debe corresponder a una que siga existiendo.
+  let validatedAreaId: string | null = null;
+  if (areaId) {
+    const area = await prisma.area.findUnique({ where: { id: areaId } });
+    if (!area) return NextResponse.json({ error: "El área elegida ya no existe" }, { status: 400 });
+    validatedAreaId = area.id;
+  }
+
   // Si no viene un estado inicial, se usa la primera columna según el modo
   // de tablero del proyecto (Por hacer / Prospectos).
   const initialStatus: TaskStatus = status || (project.boardMode === "ADMIN" ? "PROSPECTOS" : "TODO");
@@ -97,7 +105,7 @@ export async function POST(req: NextRequest) {
       description,
       projectId,
       priority: autoPriority || priority || "MEDIUM",
-      area: area || null,
+      areaId: validatedAreaId,
       phase: phase || null,
       budget: budget === "" || budget === null || budget === undefined ? null : Number(budget),
       startDate: startDate ? new Date(startDate) : null,
