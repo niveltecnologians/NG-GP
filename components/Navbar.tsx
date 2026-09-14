@@ -120,7 +120,9 @@ export default function Navbar({
     { href: "/inbox", label: "Bandeja de entrada", badge: inboxUnread },
     { href: "/chat", label: "Chat", badge: chatUnread },
     { href: "/calendar", label: "Calendario", badge: calendarPending },
+    { href: "/calendar-obras", label: "Calendario de obras", badge: 0 },
     { href: "/reports", label: "Informes", badge: 0 },
+    { href: "/team", label: "Mi equipo", badge: 0 },
     ...(user.role === "ADMIN" || user.role === "CONTABILIDAD"
       ? [{ href: "/contabilidad", label: "Contabilidad", badge: 0 }]
       : []),
