@@ -8,6 +8,7 @@ import ProjectMembersList from "./ProjectMembersList";
 import ClientPortalManager from "@/components/ClientPortalManager";
 import { TASK_FULL_INCLUDE } from "@/lib/selects";
 import { recalculateTaskPriorities } from "@/lib/autoPriority";
+import { visibleProjectTasks } from "@/lib/taskAccess";
 
 export default async function ProjectPage({ params }: { params: { id: string } }) {
   const user = await requireUser();
@@ -48,13 +49,12 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   // asignada, o la tarea no tiene área, se sigue viendo solo lo que tiene
   // asignado a él mismo (como antes). El dueño del proyecto, los
   // administradores y el gerente ven todas las tareas.
-  const visibleTasks = canManage
-    ? project.tasks
-    : project.tasks.filter((t) =>
-        user.area && t.area
-          ? t.area === user.area
-          : t.assignees.some((a) => a.user.id === user.userId)
-      );
+  const visibleTasks = visibleProjectTasks(
+    project.tasks,
+    project,
+    { userId: user.userId, role: user.role, areaId: user.areaId, seesAllAreas: user.seesAllAreas },
+    (t) => t.assignees.some((a) => a.user.id === user.userId)
+  );
 
   const serialized = {
     ...project,
@@ -88,7 +88,7 @@ export default async function ProjectPage({ params }: { params: { id: string } }
           </p>
           {!canManage && (
             <p className="mt-1 text-xs text-amber-600">
-              {user.area
+              {user.areaId
                 ? "Solo ves las tareas de tu área (y las que tienes asignadas). El dueño del proyecto, los administradores y el gerente ven todas."
                 : "Solo ves las tareas que tienes asignadas. El dueño del proyecto, los administradores y el gerente ven todas."}
             </p>
