@@ -129,6 +129,7 @@ export default function Navbar({
     ...(user.role === "ADMIN"
       ? [
           { href: "/users", label: "Usuarios", badge: 0 },
+          { href: "/areas", label: "Áreas de trabajo", badge: 0 },
           { href: "/settings", label: "Configuración", badge: 0 }
         ]
       : [])
