@@ -1,7 +1,7 @@
 "use client";
 
 import { Dispatch, SetStateAction, useRef, useState } from "react";
-import { Task, PHASE_LABELS, PHASE_BADGE_COLORS, AREA_LABELS, AREA_BADGE_COLORS } from "@/lib/types";
+import { Task, PHASE_LABELS, PHASE_BADGE_COLORS, AREA_COLOR_BADGE } from "@/lib/types";
 
 const formatCOP = (n: number) => n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
@@ -111,7 +111,7 @@ export default function BudgetTab({
                 </td>
                 <td className="px-4 py-2">
                   {t.area ? (
-                    <span className={`badge ${AREA_BADGE_COLORS[t.area]}`}>{AREA_LABELS[t.area]}</span>
+                    <span className={`badge ${AREA_COLOR_BADGE[t.area.colorKey]}`}>{t.area.name}</span>
                   ) : (
                     <span className="text-xs text-slate-300">Sin área</span>
                   )}
