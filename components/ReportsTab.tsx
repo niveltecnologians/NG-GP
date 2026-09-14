@@ -70,6 +70,7 @@ export default function ReportsTab({
   const [areaId, setAreaId] = useState<string>(canManage ? "" : userAreaId || "");
   const [publish, setPublish] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingBody, setGeneratingBody] = useState(false);
 
   // Subida de fotos
   const [uploadingTo, setUploadingTo] = useState<string | null>(null);
@@ -134,6 +135,39 @@ export default function ReportsTab({
     setProgress("");
     setDate(todayInput());
     if (canManage) setAreaId("");
+  }
+
+  // Le pide a la IA que redacte el texto del informe antes de guardarlo. Si
+  // el cuadro "Informe" ya tiene algo escrito, se usa como notas reales de
+  // lo que pasó y la IA las redacta bien; si está vacío, la IA arma un
+  // informe breve y genérico para el área y el avance elegidos. El
+  // resultado queda en el mismo cuadro, siempre editable antes de crear el
+  // informe.
+  async function handleGenerateBody() {
+    setGeneratingBody(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/reports/generate-draft`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim() || suggestedTitle,
+          areaId: canManage ? areaId || null : userAreaId,
+          progress: progress === "" ? null : progress,
+          date,
+          notes: body
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "No se pudo generar el informe con IA");
+        return;
+      }
+      const data = await res.json();
+      setBody(data.text);
+    } finally {
+      setGeneratingBody(false);
+    }
   }
 
   // Carga masiva: se escogen varias fotos de una vez y se suben una tras otra
@@ -320,12 +354,22 @@ export default function ReportsTab({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Informe</label>
+            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+              <label className="block text-sm font-medium">Informe</label>
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={generatingBody}
+                onClick={handleGenerateBody}
+              >
+                {generatingBody ? "Generando..." : "Generar con IA"}
+              </button>
+            </div>
             <textarea
               className="input min-h-[120px]"
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Escribe o pega acá el informe del día. Ej: Hoy se desarrolló el contrato de tubería en el piso 2..."
+              placeholder='Escribe o pega acá el informe del día. Ej: Hoy se desarrolló el contrato de tubería en el piso 2... O deja este cuadro vacío y dale a "Generar con IA".'
             />
           </div>
 
