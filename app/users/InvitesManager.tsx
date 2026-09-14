@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Role, ROLE_LABELS, TaskArea, AREA_LABELS } from "@/lib/types";
+import { Role, ROLE_LABELS, AreaColorKey } from "@/lib/types";
 
 type Invite = {
   id: string;
   code: string;
   role: Role;
-  area: TaskArea | null;
+  area: { id: string; name: string; colorKey: AreaColorKey } | null;
   usedAt: string | null;
   createdAt: string;
   createdBy: { id: string; name: string } | null;
@@ -19,12 +19,20 @@ export default function InvitesManager() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [role, setRole] = useState<Role>("MEMBER");
-  const [area, setArea] = useState<TaskArea | "">("");
+  const [area, setArea] = useState<string>("");
+  const [areas, setAreas] = useState<{ id: string; name: string; colorKey: AreaColorKey }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/areas")
+      .then((r) => r.json())
+      .then(setAreas)
+      .catch(() => {});
   }, []);
 
   function load() {
@@ -41,7 +49,7 @@ export default function InvitesManager() {
     const res = await fetch("/api/invites", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, area: role === "MEMBER" ? area || null : null })
+      body: JSON.stringify({ role, areaId: role === "MEMBER" ? area || null : null })
     });
     setCreating(false);
     if (!res.ok) {
@@ -83,10 +91,10 @@ export default function InvitesManager() {
             <option value="GERENTE">Como gerente</option>
           </select>
           {role === "MEMBER" && (
-            <select className="input w-40" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
+            <select className="input w-40" value={area} onChange={(e) => setArea(e.target.value)}>
               <option value="">Sin área</option>
-              {Object.entries(AREA_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           )}
@@ -120,7 +128,7 @@ export default function InvitesManager() {
                 <tr key={inv.id} className="border-b border-slate-100 text-sm">
                   <td className="px-4 py-2.5 font-mono">{inv.code}</td>
                   <td className="px-4 py-2.5">{ROLE_LABELS[inv.role]}</td>
-                  <td className="px-4 py-2.5">{inv.area ? AREA_LABELS[inv.area] : "—"}</td>
+                  <td className="px-4 py-2.5">{inv.area ? inv.area.name : "—"}</td>
                   <td className="px-4 py-2.5">
                     {inv.usedAt ? (
                       <span className="text-slate-400">Usado por {inv.usedBy?.name || "—"}</span>
