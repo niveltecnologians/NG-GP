@@ -9,6 +9,11 @@ datasource db {
 
 // Fila única (id fijo "singleton") con la personalización de marca de todo
 // el sistema: nombre de la app, logo pequeño y una imagen/portada grande.
+// También guarda, si se conectó, la IA que redacta el manual de entrega
+// (ver DeliveryManual más abajo): el proveedor elegido y su API key, tal
+// cual la pega el administrador en Configuración. Nunca se manda de vuelta
+// al navegador (ver app/api/settings/ai/route.ts), solo se usa del lado
+// del servidor para llamar a esa IA.
 model AppSettings {
   id             String   @id @default("singleton")
   appName        String   @default("Gestor de Proyectos")
@@ -20,6 +25,9 @@ model AppSettings {
   bannerData     Bytes?
   bannerMimeType String?
   hasBanner      Boolean  @default(false)
+
+  aiProvider     String?
+  aiApiKey       String?
 
   updatedAt      DateTime @updatedAt
 }
@@ -85,16 +93,19 @@ enum TaskArea {
 // consistentes en toda la app. También se usa para restringir qué ve cada
 // usuario: un miembro con un área asignada (User.areaId) solo ve, dentro
 // de cada proyecto, las tareas de esa misma área (a menos que tenga
-// seesAllAreas activado).
+// seesAllAreas activado). Lo mismo aplica ahora a los informes de avance
+// (ver ProgressReport.areaId más abajo): cada área puede llevar su propio
+// informe, aparte de los demás.
 model Area {
   id        String   @id @default(cuid())
   name      String   @unique
   colorKey  String   @default("slate")
   createdAt DateTime @default(now())
 
-  users       User[]
-  tasks       Task[]
-  inviteCodes InviteCode[]
+  users            User[]
+  tasks            Task[]
+  inviteCodes      InviteCode[]
+  progressReports  ProgressReport[]
 }
 
 // Fase del proceso a la que pertenece la actividad (independiente del
@@ -195,6 +206,7 @@ model User {
 
   clientAccessesCreated ClientAccess[]   @relation("ClientAccessCreator")
   reportsAuthored       ProgressReport[] @relation("ReportAuthor")
+  deliveryManualsMade   DeliveryManual[] @relation("DeliveryManualGenerator")
   expensesCreated       Expense[]        @relation("ExpenseCreator")
   expenseComments       ExpenseComment[]
 
@@ -243,6 +255,12 @@ model Project {
   clientAccesses ClientAccess[]
   reports        ProgressReport[]
   budgetItems    ClientBudgetItem[]
+
+  // Manual de entrega: un solo documento por proyecto que junta los
+  // informes ya publicados de todas las áreas en uno solo (ver
+  // DeliveryManual más abajo). Es opcional: no existe hasta que alguien lo
+  // genera por primera vez.
+  deliveryManual DeliveryManual?
 
   // Gastos reales del día a día (aparte del presupuesto, que es lo
   // planeado/cotizado).
@@ -691,11 +709,23 @@ model ClientAccess {
 // contrato de tubería..."), el porcentaje de avance y las fotos de ese día.
 // Todos los informes publicados de un proyecto arman, en orden, el informe
 // general que ve el cliente.
+//
+// Cada informe puede pertenecer a un área de trabajo (eléctrico, redes,
+// estructura, mampostería, etc. — ver Area más arriba): así, cada área
+// lleva el suyo por separado, sin mezclarse con los demás, y solo quien
+// administra el proyecto (o esa misma área) puede editarlo o borrarlo. Un
+// informe sin área (areaId en null) es un informe general, de quien
+// administra el proyecto. El "Manual de entrega" (ver DeliveryManual más
+// abajo) es el que junta los informes de todas las áreas en un solo
+// documento.
 model ProgressReport {
   id         String       @id @default(cuid())
 
   projectId  String
   project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  areaId     String?
+  area       Area?        @relation(fields: [areaId], references: [id], onDelete: SetNull)
 
   title      String
   body       String
@@ -716,6 +746,7 @@ model ProgressReport {
   updatedAt  DateTime     @updatedAt
 
   @@index([projectId, reportDate])
+  @@index([projectId, areaId])
 }
 
 // Cada foto del registro fotográfico. Igual que los adjuntos de las tareas,
@@ -736,6 +767,33 @@ model ProgressPhoto {
   createdAt DateTime       @default(now())
 
   @@index([reportId])
+}
+
+// Manual de entrega: un solo documento por proyecto (por eso projectId es
+// único) que junta, agrupados por área, todos los informes YA PUBLICADOS de
+// ese proyecto en un solo texto — el mismo que ve el cliente en su portal,
+// global, sin importar el área. Lo genera un administrador, el gerente o el
+// dueño del proyecto cuando ya están los informes de las áreas que
+// necesita; cada vez que lo vuelve a generar, se reemplaza el contenido
+// anterior (no queda historial de versiones, a propósito, para que sea
+// simple de usar). Si en Configuración hay una IA conectada (ver
+// AppSettings.aiProvider/aiApiKey), ese texto lo redacta la IA a partir de
+// los informes de cada área; si no hay IA conectada, se arma solo,
+// ordenado por área, sin redacción de IA (usedAI queda en false).
+model DeliveryManual {
+  id            String   @id @default(cuid())
+
+  projectId     String   @unique
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  content       String
+  usedAI        Boolean  @default(false)
+
+  generatedById String?
+  generatedBy   User?    @relation("DeliveryManualGenerator", fields: [generatedById], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // Presupuesto que se le muestra al cliente en su portal. Es aparte del
