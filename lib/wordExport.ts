@@ -14,6 +14,7 @@ export function downloadWordDoc(filename: string, title: string, bodyHtml: strin
     "<style>" +
     "body { font-family: Calibri, Arial, sans-serif; font-size: 12pt; color: #1f2937; }" +
     "h1 { font-size: 18pt; margin-bottom: 4pt; }" +
+    "h2 { font-size: 14pt; margin-top: 18pt; margin-bottom: 6pt; }" +
     ".meta { color: #6b7280; font-size: 10pt; margin-bottom: 14pt; }" +
     "p { white-space: pre-wrap; line-height: 1.4; }" +
     "img { max-width: 480px; display: block; margin: 10pt 0; }" +
