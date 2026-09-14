@@ -1,13 +1,22 @@
 // Arma el contenido del "Manual de entrega" de un proyecto: junta los
-// informes de avance YA PUBLICADOS de todas las áreas en un solo texto,
-// agrupado por área. Si hay una IA conectada (ver AppSettings.aiProvider/
-// aiApiKey, configurada en Configuración → Conectar a IA), le pide a esa IA
-// que redacte el manual de forma clara y ordenada a partir de los informes
-// crudos (sacando cantidades, garantías, materiales, etc. de lo que cada
-// área haya escrito). Si no hay IA conectada, o la llamada falla por
-// cualquier motivo, arma el manual solo (sin IA): agrupado por área, en
-// orden cronológico, tal cual quedó escrito en cada informe — así el botón
+// informes de avance YA PUBLICADOS de todas las áreas en un solo documento,
+// agrupado por área — texto Y fotos, cada sección con su propio registro
+// fotográfico como evidencia de ese proceso. Si hay una IA conectada (ver
+// AppSettings.aiProvider/aiApiKey, configurada en Configuración → Conectar
+// a IA), le pide a esa IA que redacte el texto de cada sección de forma
+// clara y ordenada a partir de los informes crudos (sacando cantidades,
+// garantías, materiales, etc. de lo que cada área haya escrito). Si no hay
+// IA conectada, o la llamada falla, o la IA no devuelve el formato
+// esperado, se arma el manual solo (sin IA): agrupado por área, en orden
+// cronológico, tal cual quedó escrito en cada informe — así el botón
 // "Generar manual de entrega" siempre funciona, con o sin IA.
+//
+// El contenido se guarda como JSON (dentro del campo de texto de la base
+// de datos) con la forma { sections: ManualSection[] }, para que la
+// pantalla y el portal del cliente puedan mostrar, debajo del texto de
+// cada área, las fotos de esa misma área.
+
+export type ManualPhoto = { url: string; filename: string; caption: string | null };
 
 export type ReportForManual = {
   areaName: string | null; // null = informe general, sin área
@@ -15,6 +24,13 @@ export type ReportForManual = {
   body: string;
   reportDate: Date;
   progress: number | null;
+  photos: ManualPhoto[];
+};
+
+export type ManualSection = {
+  areaName: string;
+  text: string;
+  photos: ManualPhoto[];
 };
 
 export type AiConfig = { provider: string; apiKey: string } | null;
@@ -24,6 +40,8 @@ export type DeliveryManualResult = {
   usedAI: boolean;
   aiError: string | null;
 };
+
+type AreaGroup = { areaName: string; reports: ReportForManual[] };
 
 const DATE_FORMAT = new Intl.DateTimeFormat("es-CO", {
   day: "numeric",
@@ -36,7 +54,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat("es-CO", {
 // principio) y, dentro de cada grupo, los deja en orden cronológico (del
 // más viejo al más nuevo), para que se lean como una historia de lo que se
 // fue haciendo.
-function groupByArea(reports: ReportForManual[]): { areaName: string; reports: ReportForManual[] }[] {
+function groupByArea(reports: ReportForManual[]): AreaGroup[] {
   const groups = new Map<string, ReportForManual[]>();
   for (const r of reports) {
     const key = r.areaName || "General";
@@ -51,32 +69,36 @@ function groupByArea(reports: ReportForManual[]): { areaName: string; reports: R
   return orderedKeys.map((name) => ({ areaName: name, reports: groups.get(name)! }));
 }
 
-// Versión sin IA: un texto simple, agrupado por área, con la fecha y el
-// avance de cada informe. Es lo que se usa si no hay IA conectada o si la
-// llamada a la IA falla.
-function compileWithoutAI(projectName: string, reports: ReportForManual[]): string {
-  const groups = groupByArea(reports);
-  const lines: string[] = [];
-  lines.push(`MANUAL DE ENTREGA — ${projectName}`);
-  lines.push("");
+function normalize(s: string) {
+  return s.trim().toLowerCase();
+}
+
+// Versión sin IA: un texto simple por área, con la fecha y el avance de
+// cada informe, y las fotos de esa área juntas. Es lo que se usa si no hay
+// IA conectada, si la llamada a la IA falla, o si la IA no devolvió el
+// formato de secciones esperado.
+function compileSectionsWithoutAI(groups: AreaGroup[]): ManualSection[] {
   if (groups.length === 0) {
-    lines.push("Todavía no hay informes publicados en ningún área.");
-    return lines.join("\n");
+    return [{ areaName: "General", text: "Todavía no hay informes publicados en ningún área.", photos: [] }];
   }
-  for (const group of groups) {
-    lines.push(`## ${group.areaName}`);
-    lines.push("");
+  return groups.map((group) => {
+    const lines: string[] = [];
     for (const r of group.reports) {
-      lines.push(`${r.title} — ${DATE_FORMAT.format(r.reportDate)}${r.progress !== null ? ` (avance ${r.progress}%)` : ""}`);
+      lines.push(
+        `${r.title} — ${DATE_FORMAT.format(r.reportDate)}${r.progress !== null ? ` (avance ${r.progress}%)` : ""}`
+      );
       if (r.body.trim()) lines.push(r.body.trim());
       lines.push("");
     }
-  }
-  return lines.join("\n").trim();
+    return {
+      areaName: group.areaName,
+      text: lines.join("\n").trim(),
+      photos: group.reports.flatMap((r) => r.photos)
+    };
+  });
 }
 
-function buildPrompt(projectName: string, reports: ReportForManual[]): string {
-  const groups = groupByArea(reports);
+function buildPrompt(projectName: string, groups: AreaGroup[]): string {
   const raw = groups
     .map((group) => {
       const items = group.reports
@@ -94,19 +116,51 @@ function buildPrompt(projectName: string, reports: ReportForManual[]): string {
     })
     .join("\n\n====\n\n");
 
+  const areaList = groups.map((g) => `"${g.areaName}"`).join(", ");
+
   return `Eres el redactor técnico de una constructora en Colombia. A continuación tienes, agrupados por área de trabajo, todos los informes de avance que cada área fue escribiendo durante la obra del proyecto "${projectName}".
 
-Con ese material, redacta un "MANUAL DE ENTREGA" único, en español, claro y bien estructurado, que reciba el cliente final al terminar la obra. Reglas importantes:
+Con ese material, redacta el texto de un "MANUAL DE ENTREGA" para el cliente final, en español, claro y bien estructurado. Reglas importantes:
 
-1. Organízalo en secciones, una por cada área (usa el nombre del área como título de sección). Dentro de cada sección, redacta en prosa clara lo que esa área entregó: qué se instaló o se hizo, cantidades concretas si aparecen en los informes (tomas, salidas, metros, unidades, etc.), garantías o plazos si se mencionan, y cualquier recomendación de mantenimiento que se haya escrito. No inventes datos que no estén en los informes; si algo no se menciona, simplemente no lo incluyas.
-2. No repitas los informes tal cual (no es un copiar y pegar): redáctalo como un documento de entrega formal y ordenado, fácil de leer para el cliente, pero sin quitar información importante.
-3. Al principio, antes de las secciones por área, escribe un párrafo breve de resumen general de la obra.
+1. Escribe exactamente una sección por cada una de estas áreas, en este orden: ${areaList}. Cada sección debe empezar EXACTAMENTE con esta marca (respeta mayúsculas, los "#" y el nombre del área tal cual está escrito arriba, sin traducirlo ni cambiarlo):
+###AREA: <nombre del área>###
+Después de la marca, escribe el texto de esa sección en prosa (sin viñetas, sin usar "#" para subtítulos).
+2. Dentro de cada sección, redacta claro lo que esa área entregó: qué se instaló o se hizo, cantidades concretas si aparecen en los informes (tomas, salidas, metros, unidades, etc.), garantías o plazos si se mencionan, y cualquier recomendación de mantenimiento que se haya escrito. No inventes datos que no estén en los informes; si algo no se menciona, simplemente no lo incluyas.
+3. No repitas los informes tal cual (no es un copiar y pegar): redáctalo como un documento de entrega formal y ordenado, fácil de leer para el cliente, pero sin quitar información importante.
 4. Usa un tono profesional pero sencillo, sin tecnicismos innecesarios.
-5. Devuelve solo el texto del manual (puedes usar títulos en mayúsculas o con "##" para las secciones), sin comentarios tuyos aparte ni explicaciones de lo que hiciste.
+5. No escribas nada antes de la primera marca ###AREA:...###, y no agregues comentarios tuyos ni explicaciones fuera de las secciones.
 
 Informes por área:
 
 ${raw}`;
+}
+
+// Interpreta la respuesta de la IA (marcada con ###AREA: nombre###) y arma
+// las secciones finales, cada una con las fotos de su área. Si a la IA le
+// faltó alguna área o no usó el formato pedido, lanza un error — quien
+// llama a esta función cae de vuelta al manual compilado sin IA.
+function parseAiSections(text: string, groups: AreaGroup[]): ManualSection[] {
+  const marker = /###AREA:\s*(.+?)\s*###/g;
+  const matches = Array.from(text.matchAll(marker));
+  if (matches.length === 0) {
+    throw new Error("La IA no devolvió el formato de secciones esperado");
+  }
+
+  const found = new Map<string, string>();
+  for (let i = 0; i < matches.length; i++) {
+    const name = matches[i][1];
+    const start = matches[i].index! + matches[i][0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index! : text.length;
+    found.set(normalize(name), text.slice(start, end).trim());
+  }
+
+  return groups.map((group) => {
+    const sectionText = found.get(normalize(group.areaName));
+    if (!sectionText) {
+      throw new Error(`La IA no incluyó la sección de "${group.areaName}"`);
+    }
+    return { areaName: group.areaName, text: sectionText, photos: group.reports.flatMap((r) => r.photos) };
+  });
 }
 
 async function callAnthropic(apiKey: string, prompt: string): Promise<string> {
@@ -162,23 +216,26 @@ export async function generateDeliveryManualContent(
   reports: ReportForManual[],
   ai: AiConfig
 ): Promise<DeliveryManualResult> {
+  const groups = groupByArea(reports);
+
   if (!ai) {
-    return { content: compileWithoutAI(projectName, reports), usedAI: false, aiError: null };
+    return { content: JSON.stringify({ sections: compileSectionsWithoutAI(groups) }), usedAI: false, aiError: null };
   }
 
   try {
-    const prompt = buildPrompt(projectName, reports);
+    const prompt = buildPrompt(projectName, groups);
     const text =
       ai.provider === "openai" ? await callOpenAI(ai.apiKey, prompt) : await callAnthropic(ai.apiKey, prompt);
-    return { content: text.trim(), usedAI: true, aiError: null };
+    const sections = parseAiSections(text, groups);
+    return { content: JSON.stringify({ sections }), usedAI: true, aiError: null };
   } catch (err) {
-    // Si la IA falla (key inválida, sin saldo, timeout, etc.) igual se
-    // entrega un manual usable, compilado sin IA, y se avisa el motivo.
+    // Si la IA falla (key inválida, sin saldo, timeout, formato raro, etc.)
+    // igual se entrega un manual usable, compilado sin IA, y se avisa el
+    // motivo.
     return {
-      content: compileWithoutAI(projectName, reports),
+      content: JSON.stringify({ sections: compileSectionsWithoutAI(groups) }),
       usedAI: false,
       aiError: err instanceof Error ? err.message : "No se pudo generar con IA"
     };
   }
 }
-
