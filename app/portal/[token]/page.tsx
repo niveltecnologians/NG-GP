@@ -41,7 +41,7 @@ export default async function PortalPage({ params }: { params: { token: string }
     }
   }
 
-  const [reports, budgetItems, scheduleTasks] = await Promise.all([
+  const [reports, budgetItems, scheduleTasks, deliveryManual] = await Promise.all([
     prisma.progressReport.findMany({
       where: { projectId: access.projectId, status: "PUBLISHED" },
       include: { photos: { orderBy: { order: "asc" } } },
@@ -61,7 +61,15 @@ export default async function PortalPage({ params }: { params: { token: string }
           select: { id: true, title: true, status: true, startDate: true, dueDate: true },
           orderBy: { startDate: "asc" }
         })
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    // Manual de entrega: el documento único que junta los informes de todas
+    // las áreas (ver DeliveryManual en el esquema). Si todavía no se generó
+    // ninguno, esta consulta simplemente devuelve null y el portal no
+    // muestra esa pestaña.
+    prisma.deliveryManual.findUnique({
+      where: { projectId: access.projectId },
+      select: { content: true, updatedAt: true }
+    })
   ]);
 
   // Se deja constancia de la última visita, para saber si el cliente ya vio
@@ -103,6 +111,9 @@ export default async function PortalPage({ params }: { params: { token: string }
       showBudget={access.showBudget && budgetItems.length > 0}
       scheduleTasks={serializedSchedule}
       showSchedule={access.showSchedule && serializedSchedule.length > 0}
+      deliveryManual={
+        deliveryManual ? { content: deliveryManual.content, updatedAt: deliveryManual.updatedAt.toISOString() } : null
+      }
     />
   );
 }
