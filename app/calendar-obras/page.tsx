@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { canManageProjectTasks } from "@/lib/taskAccess";
+import { visibleProjectTasks } from "@/lib/taskAccess";
 import { recalculateTaskPriorities } from "@/lib/autoPriority";
 import CalendarObrasView, { type CalendarTask } from "./CalendarObrasView";
 
@@ -33,7 +33,8 @@ export default async function CalendarObrasPage() {
             title: true,
             status: true,
             priority: true,
-            area: true,
+            areaId: true,
+            area: { select: { id: true, name: true, colorKey: true } },
             startDate: true,
             dueDate: true,
             assignees: { select: { user: { select: { id: true, name: true } } } },
@@ -52,14 +53,12 @@ export default async function CalendarObrasPage() {
 
   const tasks: CalendarTask[] = [];
   for (const project of projects) {
-    const canManage = canManageProjectTasks(project, user.userId, user.role);
-    const visibleTasks = canManage
-      ? project.tasks
-      : project.tasks.filter((t) =>
-          user.area && t.area
-            ? t.area === user.area
-            : t.assignees.some((a) => a.user.id === user.userId)
-        );
+    const visibleTasks = visibleProjectTasks(
+      project.tasks,
+      project,
+      { userId: user.userId, role: user.role, areaId: user.areaId, seesAllAreas: user.seesAllAreas },
+      (t) => t.assignees.some((a) => a.user.id === user.userId)
+    );
     for (const t of visibleTasks) {
       const teamAssignees = t.teamAssignees.map((ta) => ta.teamMember);
       tasks.push({
@@ -67,6 +66,7 @@ export default async function CalendarObrasPage() {
         title: t.title,
         status: t.status,
         priority: t.priority,
+        areaId: t.areaId,
         area: t.area,
         startDate: t.startDate ? t.startDate.toISOString() : null,
         dueDate: t.dueDate ? t.dueDate.toISOString() : null,
@@ -93,4 +93,3 @@ export default async function CalendarObrasPage() {
     </div>
   );
 }
-
