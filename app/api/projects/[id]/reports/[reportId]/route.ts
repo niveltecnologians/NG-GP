@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import { canManageProjectReports, canManageSingleReport } from "@/lib/reportAccess";
 
-async function assertCanWrite(projectId: string, reportId: string, userId: string, role: string) {
+async function loadReport(projectId: string, reportId: string) {
   const report = await prisma.progressReport.findUnique({
     where: { id: reportId },
-    select: { id: true, projectId: true, project: { select: { ownerId: true } } }
+    select: {
+      id: true,
+      projectId: true,
+      areaId: true,
+      authorId: true,
+      project: { select: { ownerId: true } }
+    }
   });
   if (!report || report.projectId !== projectId) return null;
-  if (report.project.ownerId !== userId && role !== "ADMIN") return null;
   return report;
 }
 
@@ -19,10 +25,21 @@ export async function PATCH(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const report = await assertCanWrite(params.id, params.reportId, user.userId, user.role);
-  if (!report) return NextResponse.json({ error: "No tienes acceso a este informe" }, { status: 403 });
+  const report = await loadReport(params.id, params.reportId);
+  if (!report) return NextResponse.json({ error: "Informe no encontrado" }, { status: 404 });
 
-  const { title, body, reportDate, progress, status } = await req.json();
+  const accessUser = {
+    userId: user.userId,
+    role: user.role,
+    areaId: user.areaId,
+    seesAllAreas: user.seesAllAreas
+  };
+
+  if (!canManageSingleReport(report.project, accessUser, report)) {
+    return NextResponse.json({ error: "No tienes acceso a este informe" }, { status: 403 });
+  }
+
+  const { title, body, reportDate, progress, status, areaId } = await req.json();
 
   const data: Record<string, unknown> = {};
   if (typeof title === "string" && title.trim()) data.title = title.trim();
@@ -37,12 +54,19 @@ export async function PATCH(
       data.progress = Number.isNaN(n) ? null : n;
     }
   }
+  // Solo quien administra el proyecto completo puede cambiarle el área a un
+  // informe ya creado (para que un área no pueda "quitarle" un informe a
+  // otra con solo editarlo).
+  if (areaId !== undefined && canManageProjectReports(report.project, accessUser)) {
+    data.areaId = areaId ? String(areaId) : null;
+  }
 
   const updated = await prisma.progressReport.update({
     where: { id: params.reportId },
     data,
     include: {
       author: { select: { id: true, name: true } },
+      area: { select: { id: true, name: true, colorKey: true } },
       photos: { orderBy: { order: "asc" } }
     }
   });
@@ -63,8 +87,19 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const report = await assertCanWrite(params.id, params.reportId, user.userId, user.role);
-  if (!report) return NextResponse.json({ error: "No tienes acceso a este informe" }, { status: 403 });
+  const report = await loadReport(params.id, params.reportId);
+  if (!report) return NextResponse.json({ error: "Informe no encontrado" }, { status: 404 });
+
+  const accessUser = {
+    userId: user.userId,
+    role: user.role,
+    areaId: user.areaId,
+    seesAllAreas: user.seesAllAreas
+  };
+
+  if (!canManageSingleReport(report.project, accessUser, report)) {
+    return NextResponse.json({ error: "No tienes acceso a este informe" }, { status: 403 });
+  }
 
   // Las fotos se borran solas por el onDelete: Cascade del esquema.
   await prisma.progressReport.delete({ where: { id: params.reportId } });
