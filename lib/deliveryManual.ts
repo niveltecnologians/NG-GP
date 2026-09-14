@@ -16,6 +16,8 @@
 // pantalla y el portal del cliente puedan mostrar, debajo del texto de
 // cada área, las fotos de esa misma área.
 
+import { callAnthropic, callOpenAI } from "@/lib/ai";
+
 export type ManualPhoto = { url: string; filename: string; caption: string | null };
 
 export type ReportForManual = {
@@ -161,54 +163,6 @@ function parseAiSections(text: string, groups: AreaGroup[]): ManualSection[] {
     }
     return { areaName: group.areaName, text: sectionText, photos: group.reports.flatMap((r) => r.photos) };
   });
-}
-
-async function callAnthropic(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-5",
-      max_tokens: 4096,
-      messages: [{ role: "user", content: prompt }]
-    }),
-    signal: AbortSignal.timeout(55000)
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Anthropic respondió ${res.status}: ${text.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  const text = data?.content?.[0]?.text;
-  if (!text || typeof text !== "string") throw new Error("Anthropic no devolvió texto");
-  return text;
-}
-
-async function callOpenAI(apiKey: string, prompt: string): Promise<string> {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: "gpt-6-astra",
-      messages: [{ role: "user", content: prompt }]
-    }),
-    signal: AbortSignal.timeout(55000)
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`OpenAI respondió ${res.status}: ${text.slice(0, 300)}`);
-  }
-  const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text || typeof text !== "string") throw new Error("OpenAI no devolvió texto");
-  return text;
 }
 
 export async function generateDeliveryManualContent(
