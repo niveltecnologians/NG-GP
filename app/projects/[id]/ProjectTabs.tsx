@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { ProjectDetail, Task, BOARD_MODE_COLUMNS } from "@/lib/types";
+import { ProjectDetail, Task, BOARD_MODE_COLUMNS, AreaColorKey } from "@/lib/types";
 import KanbanBoard from "@/components/KanbanBoard";
 import GanttChart from "@/components/GanttChart";
 import BudgetTab from "@/components/BudgetTab";
 import ReportsTab from "@/components/ReportsTab";
+import DeliveryManualPanel from "@/components/DeliveryManualPanel";
 import ExpensesTab from "@/components/ExpensesTab";
 
 type View = "board" | "gantt" | "budget" | "reports" | "expenses";
@@ -21,11 +22,15 @@ const TABS: { key: View; label: string }[] = [
 export default function ProjectTabs({
   project,
   currentUserId,
-  canManage = false
+  canManage = false,
+  areas = [],
+  userAreaId = null
 }: {
   project: ProjectDetail;
   currentUserId: string;
   canManage?: boolean;
+  areas?: { id: string; name: string; colorKey: AreaColorKey }[];
+  userAreaId?: string | null;
 }) {
   const [view, setView] = useState<View>("board");
   const [tasks, setTasks] = useState<Task[]>(project.tasks);
@@ -62,7 +67,18 @@ export default function ProjectTabs({
         />
       )}
       {view === "budget" && <BudgetTab projectId={project.id} tasks={tasks} setTasks={setTasks} />}
-      {view === "reports" && <ReportsTab projectId={project.id} canManage={canManage} />}
+      {view === "reports" && (
+        <div className="space-y-6">
+          <DeliveryManualPanel projectId={project.id} canGenerate={canManage} />
+          <ReportsTab
+            projectId={project.id}
+            canManage={canManage}
+            areas={areas}
+            userAreaId={userAreaId}
+            currentUserId={currentUserId}
+          />
+        </div>
+      )}
       {view === "expenses" && <ExpensesTab projectId={project.id} canManage={canManage} />}
     </div>
   );
