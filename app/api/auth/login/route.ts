@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
     email: user.email,
     name: user.name,
     role: user.role,
-    area: user.area
+    areaId: user.areaId,
+    seesAllAreas: user.seesAllAreas
   });
 
   const res = NextResponse.json({ id: user.id, name: user.name, email: user.email, role: user.role });
