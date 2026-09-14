@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { safeBlobPathname } from "@/lib/blobPath";
 import { AreaColorKey, AREA_COLOR_BADGE } from "@/lib/types";
-import { downloadWordDoc, escapeHtml } from "@/lib/wordExport";
+import { downloadWordDoc, escapeHtml, imageUrlToDataUri } from "@/lib/wordExport";
 
 type Photo = { id: string; url: string; filename: string; caption: string | null; order: number };
 
@@ -75,6 +75,9 @@ export default function ReportsTab({
   const [uploadingTo, setUploadingTo] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Descarga a Word (con las fotos incrustadas, así que toma unos segundos)
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}/reports`)
@@ -229,22 +232,32 @@ export default function ReportsTab({
   }
 
   // Descarga el informe como archivo de Word (.doc), con el texto y las
-  // fotos incluidas, para que se pueda editar después fuera de NG-GP.
-  function handleExportWord(report: Report) {
-    const metaParts = [formatDate(report.reportDate), report.area ? report.area.name : "General"];
-    if (report.progress !== null) metaParts.push(`Avance ${report.progress}%`);
+  // fotos incluidas, para que se pueda editar después fuera de NG-GP. Las
+  // fotos quedan incrustadas dentro del archivo desde el momento en que se
+  // descarga (no dependen de internet cuando alguien lo abra más tarde).
+  async function handleExportWord(report: Report) {
+    setExportingId(report.id);
+    setError(null);
+    try {
+      const metaParts = [formatDate(report.reportDate), report.area ? report.area.name : "General"];
+      if (report.progress !== null) metaParts.push(`Avance ${report.progress}%`);
 
-    let html = `<h1>${escapeHtml(report.title)}</h1>`;
-    html += `<p class="meta">${escapeHtml(metaParts.join(" · "))}</p>`;
-    if (report.body) {
-      html += `<p>${escapeHtml(report.body).replace(/\n/g, "<br>")}</p>`;
+      let html = `<h1>${escapeHtml(report.title)}</h1>`;
+      html += `<p class="meta">${escapeHtml(metaParts.join(" · "))}</p>`;
+      if (report.body) {
+        html += `<p>${escapeHtml(report.body).replace(/\n/g, "<br>")}</p>`;
+      }
+
+      for (const photo of report.photos) {
+        const dataUri = await imageUrlToDataUri(photo.url);
+        html += `<img src="${dataUri || photo.url}" alt="${escapeHtml(photo.caption || photo.filename)}">`;
+        if (photo.caption) html += `<p class="caption">${escapeHtml(photo.caption)}</p>`;
+      }
+
+      downloadWordDoc(report.title, report.title, html);
+    } finally {
+      setExportingId(null);
     }
-    report.photos.forEach((photo) => {
-      html += `<img src="${photo.url}" alt="${escapeHtml(photo.caption || photo.filename)}">`;
-      if (photo.caption) html += `<p class="caption">${escapeHtml(photo.caption)}</p>`;
-    });
-
-    downloadWordDoc(report.title, report.title, html);
   }
 
   if (loading) return <p className="text-sm text-slate-400">Cargando informes...</p>;
@@ -382,8 +395,12 @@ export default function ReportsTab({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <button className="btn-secondary" onClick={() => handleExportWord(report)}>
-                  Descargar Word
+                <button
+                  className="btn-secondary"
+                  disabled={exportingId === report.id}
+                  onClick={() => handleExportWord(report)}
+                >
+                  {exportingId === report.id ? "Preparando..." : "Descargar Word"}
                 </button>
                 {manageThis && (
                   <>
