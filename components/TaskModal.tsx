@@ -8,7 +8,7 @@ import {
   ProjectMember,
   TaskStatus,
   TaskPriority,
-  TaskArea,
+  AreaColorKey,
   TaskPhase,
   SubTask,
   ChecklistItem,
@@ -17,8 +17,7 @@ import {
   STATUS_LABELS,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
-  AREA_LABELS,
-  AREA_BADGE_COLORS,
+  AREA_COLOR_BADGE,
   PHASE_LABELS,
   PHASE_BADGE_COLORS
 } from "@/lib/types";
@@ -41,7 +40,8 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
   const [description, setDescription] = useState(task?.description || "");
   const [status, setStatus] = useState<TaskStatus>(task?.status || statusOptions[0]);
   const [priority, setPriority] = useState<TaskPriority>(task?.priority || "MEDIUM");
-  const [area, setArea] = useState<TaskArea | "">(task?.area || "");
+  const [area, setArea] = useState<string>(task?.area?.id || "");
+  const [areas, setAreas] = useState<{ id: string; name: string; colorKey: AreaColorKey }[]>([]);
   const [phase, setPhase] = useState<TaskPhase | "">(task?.phase || "");
   const [budget, setBudget] = useState(task?.budget !== null && task?.budget !== undefined ? String(task.budget) : "");
   const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignees.map((a) => a.id) || []);
@@ -72,6 +72,13 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
       .then((data) => {
         if (Array.isArray(data)) setOwnTeamMembers(data);
       })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/areas")
+      .then((r) => r.json())
+      .then(setAreas)
       .catch(() => {});
   }, []);
 
@@ -324,7 +331,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           assigneeIds,
           teamMemberIds,
           priority,
-          area: area || null,
+          areaId: area || null,
           phase: phase || null,
           budget: budget === "" ? null : Number(budget),
           startDate,
@@ -351,7 +358,7 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
           description,
           status,
           priority,
-          area: area || null,
+          areaId: area || null,
           phase: phase || null,
           budget: budget === "" ? null : Number(budget),
           assigneeIds,
@@ -503,17 +510,20 @@ export default function TaskModal({ projectId, members, statusOptions, task, all
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1 block text-sm font-medium">Área</label>
-            <select className="input" value={area} onChange={(e) => setArea(e.target.value as TaskArea | "")}>
+            <select className="input" value={area} onChange={(e) => setArea(e.target.value)}>
               <option value="">Sin área</option>
-              {Object.entries(AREA_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
-            {area && (
-              <span className={`badge mt-1 inline-block ${AREA_BADGE_COLORS[area as TaskArea]}`}>
-                {AREA_LABELS[area as TaskArea]}
-              </span>
-            )}
+            {(() => {
+              const selectedArea = areas.find((a) => a.id === area);
+              return selectedArea ? (
+                <span className={`badge mt-1 inline-block ${AREA_COLOR_BADGE[selectedArea.colorKey]}`}>
+                  {selectedArea.name}
+                </span>
+              ) : null;
+            })()}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">
