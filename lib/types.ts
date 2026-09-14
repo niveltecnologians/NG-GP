@@ -9,17 +9,28 @@ export type TeamMemberLite = { id: string; name: string; title: string | null };
 // escrito literalmente en el código para poder generarla; no se puede
 // armar un nombre de clase a partir de un color guardado en la base de
 // datos. Un área nueva elige uno de estos colores, no cualquiera.
-export type AreaColorKey =
-  | "yellow"
-  | "red"
-  | "blue"
-  | "green"
-  | "purple"
-  | "orange"
-  | "pink"
-  | "teal"
-  | "cyan"
-  | "slate";
+//
+// NOTA: colorKey se guarda como texto libre en la columna de la base de
+// datos (no es un enum de Prisma), así que este tipo es "string" para que
+// cualquier valor que venga de una consulta a la base de datos encaje sin
+// fricción con AreaLite. La lista real de colores válidos para elegir al
+// crear/editar un área es AREA_COLOR_KEYS, justo abajo.
+export type AreaColorKey = string;
+
+export const AREA_COLOR_KEYS: AreaColorKey[] = [
+  "yellow",
+  "red",
+  "blue",
+  "green",
+  "purple",
+  "orange",
+  "pink",
+  "teal",
+  "cyan",
+  "slate"
+];
+
+export const DEFAULT_AREA_COLOR_KEY: AreaColorKey = "slate";
 
 // Área/oficio de trabajo. Ahora es editable desde el panel de
 // administración (Áreas de trabajo) en vez de una lista fija en el
