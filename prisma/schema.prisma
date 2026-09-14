@@ -66,16 +66,35 @@ enum TaskPriority {
   URGENT
 }
 
-// Área/oficio al que pertenece la tarea; cada una tiene un color fijo en la
-// interfaz (Carpintería = amarillo, Redes = rojo, Arquitectura = azul, Obra
-// Civil = verde). También se usa para restringir qué ve cada usuario: un
-// miembro con un área asignada (User.area) solo ve, dentro de cada
-// proyecto, las tareas de su misma área.
+// Área histórica (4 valores fijos): ya no se usa para nada nuevo, se dejó
+// solo para no perder el dato de usuarios/tareas/invitaciones antiguas
+// mientras se traspasan a la tabla Area (ver User.legacyArea, Task.legacyArea
+// e InviteCode.legacyArea más abajo). El área real ahora vive en el modelo
+// Area, que se puede administrar desde Áreas de trabajo en el panel.
 enum TaskArea {
   CARPINTERIA
   REDES
   ARQUITECTURA
   OBRA_CIVIL
+}
+
+// Área/oficio de trabajo, ahora editable (Carpintería, Redes, Arquitectura,
+// Obra Civil de fábrica, y cualquier otra que se cree desde "Áreas de
+// trabajo" en el panel de administración). Cada área tiene un color fijo
+// de una paleta chica (colorKey), para que las etiquetas se vean
+// consistentes en toda la app. También se usa para restringir qué ve cada
+// usuario: un miembro con un área asignada (User.areaId) solo ve, dentro
+// de cada proyecto, las tareas de esa misma área (a menos que tenga
+// seesAllAreas activado).
+model Area {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  colorKey  String   @default("slate")
+  createdAt DateTime @default(now())
+
+  users       User[]
+  tasks       Task[]
+  inviteCodes InviteCode[]
 }
 
 // Fase del proceso a la que pertenece la actividad (independiente del
@@ -122,11 +141,20 @@ model User {
   passwordHash  String
   role          Role     @default(MEMBER)
 
-  // Área a la que pertenece este usuario (solo aplica a miembros de un
-  // área puntual, ej. Redes o Arquitectura). Si está en null, ve las
-  // tareas por asignación individual, como antes. Administrador, Gerente
-  // y Contabilidad no necesitan área: ya ven todo o nada, según su rol.
-  area          TaskArea?
+  // Área a la que pertenecía este usuario con el sistema anterior (4 áreas
+  // fijas). Se deja para no perder el dato histórico; el campo que se usa
+  // ahora es areaId/area más abajo.
+  legacyArea    TaskArea? @map("area")
+
+  // Área de trabajo (editable desde el panel de administración). Si
+  // seesAllAreas está en true, el usuario ve todas las áreas dentro de sus
+  // proyectos sin filtrar por área (aunque tenga una asignada). Si areaId
+  // está en null y seesAllAreas es false, ve las tareas por asignación
+  // individual, como antes. Administrador, Gerente y Contabilidad no
+  // necesitan área: ya ven todo o nada, según su rol.
+  areaId        String?
+  area          Area?    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  seesAllAreas  Boolean  @default(false)
 
   createdAt     DateTime @default(now())
 
@@ -181,9 +209,14 @@ model InviteCode {
   code        String    @unique
   role        Role      @default(MEMBER)
 
+  // Área con el sistema anterior (4 áreas fijas). Se deja para no perder
+  // el dato histórico; el campo que se usa ahora es areaId/area más abajo.
+  legacyArea  TaskArea? @map("area")
+
   // Si el código es para un miembro de un área puntual, la persona que se
   // registra con él queda con esa área asignada automáticamente.
-  area        TaskArea?
+  areaId      String?
+  area        Area?     @relation(fields: [areaId], references: [id], onDelete: SetNull)
 
   createdById String?
   createdBy   User?     @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -236,7 +269,13 @@ model Task {
   description String?
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIUM)
-  area        TaskArea?
+
+  // Área con el sistema anterior (4 áreas fijas). Se deja para no perder
+  // el dato histórico; el campo que se usa ahora es areaId/area más abajo.
+  legacyArea  TaskArea?    @map("area")
+  areaId      String?
+  area        Area?        @relation(fields: [areaId], references: [id], onDelete: SetNull)
+
   phase       TaskPhase?
   budget      Float?
   startDate   DateTime?
