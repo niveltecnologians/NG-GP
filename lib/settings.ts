@@ -17,3 +17,13 @@ export async function getAppSettings() {
     throw new Error("No se pudo crear la configuración de la aplicación");
   }
 }
+
+// Datos de la IA conectada (Configuración → Conectar a IA), listos para
+// usar del lado del servidor (ej. al generar el manual de entrega). Nunca
+// se debe mandar el resultado de esta función al navegador tal cual: solo
+// se usa para llamar a la IA desde una ruta del servidor.
+export async function getAiConfig(): Promise<{ provider: string; apiKey: string } | null> {
+  const settings = await getAppSettings();
+  if (!settings.aiProvider || !settings.aiApiKey) return null;
+  return { provider: settings.aiProvider, apiKey: settings.aiApiKey };
+}
