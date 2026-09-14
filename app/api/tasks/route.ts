@@ -10,12 +10,14 @@ function serializeTask<
   T extends {
     dependsOn: { dependsOn: { id: string; title: string } }[];
     assignees: { user: { id: string; name: string; email: string } }[];
+    teamAssignees: { teamMember: { id: string; name: string; title: string | null; ownerId: string } }[];
   }
 >(task: T) {
   return {
     ...task,
     dependsOn: task.dependsOn.map((d) => d.dependsOn),
-    assignees: task.assignees.map((a) => a.user)
+    assignees: task.assignees.map((a) => a.user),
+    teamAssignees: task.teamAssignees.map((a) => a.teamMember)
   };
 }
 
@@ -23,8 +25,21 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { title, description, projectId, assigneeIds, priority, startDate, dueDate, status, area, phase, budget, dependsOnIds } =
-    await req.json();
+  const {
+    title,
+    description,
+    projectId,
+    assigneeIds,
+    teamMemberIds,
+    priority,
+    startDate,
+    dueDate,
+    status,
+    area,
+    phase,
+    budget,
+    dependsOnIds
+  } = await req.json();
   if (!title || !projectId) {
     return NextResponse.json({ error: "Título y proyecto son obligatorios" }, { status: 400 });
   }
@@ -44,6 +59,17 @@ export async function POST(req: NextRequest) {
         (id: string) => id === project.ownerId || project.members.some((m) => m.userId === id)
       )
     : [];
+
+  // Solo se pueden asignar miembros del propio equipo de trabajo de quien
+  // crea la tarea (colaboradores sin acceso al sistema).
+  let validTeamMemberIds: string[] = [];
+  if (Array.isArray(teamMemberIds) && teamMemberIds.length > 0) {
+    const ownTeamMembers = await prisma.teamMember.findMany({
+      where: { id: { in: teamMemberIds }, ownerId: user.userId },
+      select: { id: true }
+    });
+    validTeamMemberIds = ownTeamMembers.map((tm) => tm.id);
+  }
 
   // Si no viene un estado inicial, se usa la primera columna según el modo
   // de tablero del proyecto (Por hacer / Prospectos).
@@ -83,6 +109,9 @@ export async function POST(req: NextRequest) {
       },
       assignees: {
         create: validAssigneeIds.map((userId) => ({ userId }))
+      },
+      teamAssignees: {
+        create: validTeamMemberIds.map((teamMemberId) => ({ teamMemberId }))
       }
     },
     include: TASK_FULL_INCLUDE
