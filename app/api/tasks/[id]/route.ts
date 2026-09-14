@@ -75,7 +75,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.title !== undefined) data.title = body.title;
   if (body.description !== undefined) data.description = body.description;
   if (body.status !== undefined) data.status = body.status;
-  if (body.area !== undefined) data.area = body.area || null;
+  if (body.areaId !== undefined) {
+    if (body.areaId) {
+      const area = await prisma.area.findUnique({ where: { id: body.areaId } });
+      if (!area) return NextResponse.json({ error: "El área elegida ya no existe" }, { status: 400 });
+      data.areaId = area.id;
+    } else {
+      data.areaId = null;
+    }
+  }
   if (body.phase !== undefined) data.phase = body.phase || null;
   if (body.budget !== undefined) {
     data.budget = body.budget === "" || body.budget === null ? null : Number(body.budget);
