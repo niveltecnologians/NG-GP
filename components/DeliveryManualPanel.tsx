@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { downloadWordDoc, escapeHtml } from "@/lib/wordExport";
 
 type Manual = { content: string; usedAI: boolean; updatedAt: string } | null;
 
 // Panel de "Manual de entrega": junta los informes publicados de todas las
 // áreas de este proyecto en un solo documento (el mismo que ve el cliente
-// en su portal). Cualquier miembro del proyecto puede verlo una vez existe;
-// solo quien administra el proyecto completo (dueño, administrador o
-// gerente) puede generarlo o volver a generarlo.
+// en su portal). Cualquier miembro del proyecto puede verlo y descargarlo
+// una vez existe; solo quien administra el proyecto completo (dueño,
+// administrador o gerente) puede generarlo, volver a generarlo o borrarlo.
 export default function DeliveryManualPanel({
   projectId,
   canGenerate
@@ -19,6 +20,7 @@ export default function DeliveryManualPanel({
   const [manual, setManual] = useState<Manual>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -54,6 +56,40 @@ export default function DeliveryManualPanel({
     }
   }
 
+  async function handleDelete() {
+    if (
+      !confirm(
+        "¿Borrar el manual de entrega? El cliente dejará de verlo en su portal hasta que generes uno nuevo."
+      )
+    )
+      return;
+    setDeleting(true);
+    setError(null);
+    const res = await fetch(`/api/projects/${projectId}/delivery-manual`, { method: "DELETE" });
+    setDeleting(false);
+    if (!res.ok) {
+      setError("No se pudo borrar el manual de entrega");
+      return;
+    }
+    setManual(null);
+    setOpen(false);
+  }
+
+  function handleExportWord() {
+    if (!manual) return;
+    const updated = new Date(manual.updatedAt).toLocaleDateString("es-CO", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "America/Bogota"
+    });
+    const html =
+      "<h1>Manual de entrega</h1>" +
+      `<p class="meta">Actualizado ${escapeHtml(updated)}</p>` +
+      `<p>${escapeHtml(manual.content).replace(/\n/g, "<br>")}</p>`;
+    downloadWordDoc("Manual de entrega", "Manual de entrega", html);
+  }
+
   if (loading) return null;
   if (!manual && !canGenerate) return null;
 
@@ -67,11 +103,27 @@ export default function DeliveryManualPanel({
             cliente en su portal, completo, sin importar el área.
           </p>
         </div>
-        {canGenerate && (
-          <button className="btn" disabled={generating} onClick={handleGenerate}>
-            {generating ? "Generando..." : manual ? "Generar de nuevo" : "Generar manual de entrega"}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {manual && (
+            <button className="btn-secondary" onClick={handleExportWord}>
+              Descargar Word
+            </button>
+          )}
+          {canGenerate && manual && (
+            <button
+              className="btn-secondary text-red-600 hover:bg-red-50"
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              {deleting ? "Borrando..." : "Borrar manual"}
+            </button>
+          )}
+          {canGenerate && (
+            <button className="btn" disabled={generating} onClick={handleGenerate}>
+              {generating ? "Generando..." : manual ? "Generar de nuevo" : "Generar manual de entrega"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">{error}</p>}
@@ -115,4 +167,3 @@ export default function DeliveryManualPanel({
     </div>
   );
 }
-
