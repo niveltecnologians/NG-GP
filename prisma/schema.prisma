@@ -169,6 +169,11 @@ model User {
   reportsAuthored       ProgressReport[] @relation("ReportAuthor")
   expensesCreated       Expense[]        @relation("ExpenseCreator")
   expenseComments       ExpenseComment[]
+
+  // Equipo de trabajo propio: colaboradores sin acceso al sistema (solo
+  // nombre y cargo, ej. "Óscar Sánchez, Oficial") que este usuario puede
+  // asignar a sus tareas junto con los demás usuarios del proyecto.
+  teamMembers          TeamMember[]
 }
 
 model InviteCode {
@@ -256,6 +261,10 @@ model Task {
   // — se deja tal cual para no perder el historial de tareas antiguas.
   assignees   TaskAssignee[]
 
+  // Miembros del equipo de trabajo (colaboradores sin acceso al sistema)
+  // asignados a esta tarea, aparte de los usuarios de "assignees".
+  teamAssignees TaskTeamMember[]
+
   // Dependencias para el diagrama de Gantt / ruta crítica: de qué otras
   // tareas depende esta (no puede empezar hasta que terminen), y qué otras
   // tareas dependen de esta.
@@ -300,6 +309,43 @@ model TaskAssignee {
   @@unique([taskId, userId])
   @@index([taskId])
   @@index([userId])
+}
+
+// Miembro del equipo de trabajo de un usuario: una persona sin acceso al
+// sistema (ej. un oficial o ayudante) que ese usuario supervisa. Solo tiene
+// nombre y cargo, para poder asignarle tareas junto con los demás
+// colaboradores y verlo en el calendario de obras.
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  title     String?
+
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  taskAssignments TaskTeamMember[]
+
+  createdAt DateTime @default(now())
+
+  @@index([ownerId])
+}
+
+// Asigna una tarea a un miembro del equipo de trabajo (sin acceso al
+// sistema), aparte de los usuarios de TaskAssignee.
+model TaskTeamMember {
+  id           String     @id @default(cuid())
+
+  taskId       String
+  task         Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  teamMemberId String
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime   @default(now())
+
+  @@unique([taskId, teamMemberId])
+  @@index([taskId])
+  @@index([teamMemberId])
 }
 
 // Observaciones: historial de notas que cualquier persona con acceso a la
