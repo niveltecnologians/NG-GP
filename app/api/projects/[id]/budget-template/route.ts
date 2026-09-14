@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { PHASE_LABELS, AREA_LABELS, TaskPhase, TaskArea } from "@/lib/types";
+import { PHASE_LABELS, TaskPhase } from "@/lib/types";
 
 // Genera un .xlsx con la lista de actividades del proyecto, para que se
 // pueda llenar el presupuesto de cada una y volver a subirlo. La columna
@@ -14,7 +14,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const project = await prisma.project.findUnique({
     where: { id: params.id },
-    include: { members: true, tasks: { orderBy: { createdAt: "asc" } } }
+    include: {
+      members: true,
+      tasks: { orderBy: { createdAt: "asc" }, include: { area: { select: { name: true } } } }
+    }
   });
   if (!project) return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
   const isMember = project.ownerId === user.userId || project.members.some((m) => m.userId === user.userId);
@@ -26,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       t.id,
       t.title,
       t.phase ? PHASE_LABELS[t.phase as TaskPhase] : "",
-      t.area ? AREA_LABELS[t.area as TaskArea] : "",
+      t.area ? t.area.name : "",
       t.budget ?? ""
     ])
   ];
