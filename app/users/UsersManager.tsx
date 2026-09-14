@@ -219,24 +219,28 @@ export default function UsersManager({
               <label className="mb-1 block text-sm font-medium">Área</label>
               <select
                 className="input"
-                value={areaId}
-                onChange={(e) => setAreaId(e.target.value)}
-                disabled={seesAllAreas}
+                value={seesAllAreas ? "ALL" : areaId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "ALL") {
+                    setSeesAllAreas(true);
+                    setAreaId("");
+                  } else {
+                    setSeesAllAreas(false);
+                    setAreaId(v);
+                  }
+                }}
               >
                 <option value="">Sin área</option>
+                <option value="ALL">Todas las áreas</option>
                 {areas.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-slate-400">
+                "Todas las áreas" es para gerentes o administradores que deben ver todo, sin quedar limitados a un área.
+              </p>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={seesAllAreas}
-                onChange={(e) => setSeesAllAreas(e.target.checked)}
-              />
-              Ve todas las áreas (Todos)
-            </label>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancelar</button>
               <button type="submit" disabled={loading} className="btn">{loading ? "Creando..." : "Crear"}</button>
@@ -290,24 +294,28 @@ export default function UsersManager({
               <label className="mb-1 block text-sm font-medium">Área</label>
               <select
                 className="input"
-                value={editAreaId}
-                onChange={(e) => setEditAreaId(e.target.value)}
-                disabled={editSeesAllAreas}
+                value={editSeesAllAreas ? "ALL" : editAreaId}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "ALL") {
+                    setEditSeesAllAreas(true);
+                    setEditAreaId("");
+                  } else {
+                    setEditSeesAllAreas(false);
+                    setEditAreaId(v);
+                  }
+                }}
               >
                 <option value="">Sin área</option>
+                <option value="ALL">Todas las áreas</option>
                 {areas.map((a) => (
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-slate-400">
+                "Todas las áreas" es para gerentes o administradores que deben ver todo, sin quedar limitados a un área.
+              </p>
             </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={editSeesAllAreas}
-                onChange={(e) => setEditSeesAllAreas(e.target.checked)}
-              />
-              Ve todas las áreas (Todos)
-            </label>
             <div className="flex justify-end gap-2">
               <button type="button" className="btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
               <button type="submit" disabled={editLoading} className="btn">{editLoading ? "Guardando..." : "Guardar cambios"}</button>
