@@ -19,6 +19,23 @@ type ScheduleTask = { id: string; title: string; startDate: string | null; dueDa
 
 type DeliveryManual = { content: string; updatedAt: string };
 
+type ManualPhoto = { url: string; filename: string; caption: string | null };
+type ManualSection = { areaName: string; text: string; photos: ManualPhoto[] };
+
+// El contenido del manual se guarda como JSON ({ sections: [...] }), una
+// sección por área con su texto y su registro fotográfico. Si viene de un
+// manual generado antes de este cambio (texto plano), se muestra como una
+// sola sección "General", sin fotos.
+function parseManualSections(content: string): ManualSection[] {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed && Array.isArray(parsed.sections)) return parsed.sections;
+  } catch {
+    // Manual generado antes de este cambio: era texto plano.
+  }
+  return [{ areaName: "General", text: content, photos: [] }];
+}
+
 const money = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -81,6 +98,11 @@ export default function PortalView({
         r.photos.map((p) => ({ ...p, reportTitle: r.title, reportDate: r.reportDate }))
       ),
     [reports]
+  );
+
+  const manualSections = useMemo(
+    () => (deliveryManual ? parseManualSections(deliveryManual.content) : []),
+    [deliveryManual]
   );
 
   const totals = useMemo(() => {
@@ -223,12 +245,47 @@ export default function PortalView({
       )}
 
       {view === "manual" && deliveryManual && (
-        <div className="card p-6">
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-lg font-semibold">Manual de entrega</h2>
-            <span className="text-xs text-slate-400">Actualizado {formatDate(deliveryManual.updatedAt)}</span>
+        <div className="space-y-5">
+          <div className="card p-6">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-lg font-semibold">Manual de entrega</h2>
+              <span className="text-xs text-slate-400">Actualizado {formatDate(deliveryManual.updatedAt)}</span>
+            </div>
           </div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{deliveryManual.content}</p>
+
+          {manualSections.map((section, i) => (
+            <article key={i} className="card p-6">
+              <h3 className="text-base font-semibold text-slate-800">{section.areaName}</h3>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{section.text}</p>
+
+              {section.photos.length > 0 && (
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {section.photos.map((photo, j) => (
+                    <button
+                      key={j}
+                      onClick={() =>
+                        setLightbox({
+                          id: `${section.areaName}-${j}`,
+                          url: photo.url,
+                          filename: photo.filename,
+                          caption: photo.caption
+                        })
+                      }
+                      className="group relative aspect-square overflow-hidden rounded-lg bg-slate-100"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={photo.url}
+                        alt={photo.caption || photo.filename}
+                        loading="lazy"
+                        className="h-full w-full object-cover transition group-hover:scale-105"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))}
         </div>
       )}
 
