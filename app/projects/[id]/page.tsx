@@ -18,17 +18,22 @@ export default async function ProjectPage({ params }: { params: { id: string } }
   // límite desde la última vez que alguien lo vio).
   await recalculateTaskPriorities({ projectId: params.id });
 
-  const project = await prisma.project.findUnique({
-    where: { id: params.id },
-    include: {
-      owner: { select: { id: true, name: true, email: true } },
-      members: { include: { user: { select: { id: true, name: true, email: true } } } },
-      tasks: {
-        include: TASK_FULL_INCLUDE,
-        orderBy: { createdAt: "asc" }
+  const [project, areas] = await Promise.all([
+    prisma.project.findUnique({
+      where: { id: params.id },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        members: { include: { user: { select: { id: true, name: true, email: true } } } },
+        tasks: {
+          include: TASK_FULL_INCLUDE,
+          orderBy: { createdAt: "asc" }
+        }
       }
-    }
-  });
+    }),
+    // Lista de áreas para el selector de "Informes de obra": qué área lleva
+    // cada informe (ver ReportsTab / DeliveryManualPanel).
+    prisma.area.findMany({ select: { id: true, name: true, colorKey: true }, orderBy: { name: "asc" } })
+  ]);
 
   if (!project) notFound();
 
@@ -116,7 +121,13 @@ export default async function ProjectPage({ params }: { params: { id: string } }
         )}
       </div>
 
-      <ProjectTabs project={serialized} currentUserId={user.userId} canManage={canManage} />
+      <ProjectTabs
+        project={serialized}
+        currentUserId={user.userId}
+        canManage={canManage}
+        areas={areas}
+        userAreaId={user.areaId}
+      />
     </div>
   );
 }
