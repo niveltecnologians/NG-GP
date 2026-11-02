@@ -3,6 +3,7 @@ import { verifySession } from "@/lib/auth";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
+  "/tasks",
   "/projects",
   "/inbox",
   "/reports",
@@ -44,6 +45,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/tasks/:path*",
     "/projects/:path*",
     "/inbox/:path*",
     "/reports/:path*",
