@@ -83,6 +83,24 @@ export default function Navbar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // Refresca de inmediato el número de la bandeja cuando el usuario borra
+  // o lee un requerimiento (sin esperar a que pase el sondeo de 15s de
+  // arriba). Las páginas de la bandeja avisan con este evento.
+  useEffect(() => {
+    function refreshInboxBadge() {
+      fetch("/api/inbox/unread-count")
+        .then((r) => r.json())
+        .then((data) => {
+          if (typeof data.count !== "number") return;
+          prevInbox.current = data.count;
+          setInboxUnread(data.count);
+        })
+        .catch(() => {});
+    }
+    window.addEventListener("ng-gp:inbox-updated", refreshInboxBadge);
+    return () => window.removeEventListener("ng-gp:inbox-updated", refreshInboxBadge);
+  }, []);
+
   function notify(title: string, body: string) {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     if (typeof document !== "undefined" && document.visibilityState === "visible" && document.hasFocus()) return;
@@ -308,4 +326,3 @@ export default function Navbar({
     </header>
   );
 }
-// Nota: commit vacío para re-disparar el despliegue en Vercel después de desbloquear la cuenta.
