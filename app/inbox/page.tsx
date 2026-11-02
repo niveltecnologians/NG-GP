@@ -49,7 +49,12 @@ export default function InboxPage() {
     e.stopPropagation();
     if (!confirm("¿Eliminar este requerimiento y sus respuestas? Esta acción no se puede deshacer.")) return;
     const res = await fetch(`/api/inbox/${id}`, { method: "DELETE" });
-    if (res.ok) setTickets((prev) => prev.filter((t) => t.id !== id));
+    if (res.ok) {
+      setTickets((prev) => prev.filter((t) => t.id !== id));
+      // Avisa al Navbar que refresque el número de la bandeja de inmediato,
+      // sin esperar al sondeo de 15s.
+      window.dispatchEvent(new Event("ng-gp:inbox-updated"));
+    }
   }
 
   return (
