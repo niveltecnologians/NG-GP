@@ -308,3 +308,4 @@ export default function Navbar({
     </header>
   );
 }
+// Nota: commit vacío para re-disparar el despliegue en Vercel después de desbloquear la cuenta.
