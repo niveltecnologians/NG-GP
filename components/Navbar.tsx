@@ -117,6 +117,7 @@ export default function Navbar({
 
   const links = [
     { href: "/dashboard", label: "Proyectos", badge: 0 },
+    { href: "/tasks", label: "Tareas", badge: 0 },
     { href: "/inbox", label: "Bandeja de entrada", badge: inboxUnread },
     { href: "/chat", label: "Chat", badge: chatUnread },
     { href: "/calendar", label: "Calendario", badge: calendarPending },
