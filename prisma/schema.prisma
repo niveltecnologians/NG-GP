@@ -214,6 +214,10 @@ model User {
   // nombre y cargo, ej. "Óscar Sánchez, Oficial") que este usuario puede
   // asignar a sus tareas junto con los demás usuarios del proyecto.
   teamMembers          TeamMember[]
+
+  // Tareas externas: pendientes personales del usuario, sin obra asociada
+  // (las agrega y las marca él mismo, estilo Google Tasks).
+  personalTasks        PersonalTask[]
 }
 
 model InviteCode {
@@ -897,4 +901,21 @@ model ExpenseComment {
   createdAt DateTime @default(now())
 
   @@index([expenseId])
+}
+
+// Tareas externas: pendientes personales del usuario (no están ligadas a
+// ninguna obra ni tablero). Las crea, marca y borra el usuario mismo desde
+// "Tareas", separado de las tareas que le asignan en sus proyectos.
+model PersonalTask {
+  id        String   @id @default(cuid())
+  title     String
+  done      Boolean  @default(false)
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
