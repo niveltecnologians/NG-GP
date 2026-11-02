@@ -4,6 +4,14 @@ import { useState } from "react";
 import type { TaskStatus, TaskPriority, AreaLite } from "@/lib/types";
 import { PRIORITY_LABELS, PRIORITY_COLORS, AREA_COLOR_BADGE } from "@/lib/types";
 
+// Tarea externa: pendiente personal, sin obra asociada. La agrega, marca y
+// borra el usuario mismo.
+export type ExternalTask = {
+  id: string;
+  title: string;
+  done: boolean;
+};
+
 export type MyTask = {
   id: string;
   title: string;
@@ -27,7 +35,140 @@ function formatDue(iso: string) {
   });
 }
 
-export default function TasksView({ initialTasks }: { initialTasks: MyTask[] }) {
+function ExternalTasksSection({ initialExternalTasks }: { initialExternalTasks: ExternalTask[] }) {
+  const [tasks, setTasks] = useState(initialExternalTasks);
+  const [title, setTitle] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false);
+
+  const pending = tasks.filter((t) => !t.done);
+  const done = tasks.filter((t) => t.done);
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed || adding) return;
+    setAdding(true);
+    const res = await fetch("/api/personal-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: trimmed })
+    });
+    if (res.ok) {
+      const created = await res.json();
+      setTasks((prev) => [{ id: created.id, title: created.title, done: created.done }, ...prev]);
+      setTitle("");
+    }
+    setAdding(false);
+  }
+
+  async function toggle(task: ExternalTask) {
+    const nextDone = !task.done;
+    setSavingId(task.id);
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: nextDone } : t)));
+
+    const res = await fetch(`/api/personal-tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: nextDone })
+    });
+
+    if (!res.ok) {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, done: task.done } : t)));
+    }
+    setSavingId(null);
+  }
+
+  async function handleDelete(id: string) {
+    const previous = tasks;
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+
+    const res = await fetch(`/api/personal-tasks/${id}`, { method: "DELETE" });
+    if (!res.ok) setTasks(previous);
+  }
+
+  function Row({ task }: { task: ExternalTask }) {
+    return (
+      <li className="flex items-start gap-3 border-b border-slate-100 py-3 last:border-0">
+        <button
+          onClick={() => toggle(task)}
+          disabled={savingId === task.id}
+          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-xs transition ${
+            task.done ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 hover:border-brand-500"
+          }`}
+          aria-label={task.done ? "Marcar como pendiente" : "Marcar como hecha"}
+        >
+          {task.done && "✓"}
+        </button>
+        <p
+          className={`min-w-0 flex-1 text-sm font-medium ${
+            task.done ? "text-slate-400 line-through" : "text-slate-800"
+          }`}
+        >
+          {task.title}
+        </p>
+        <button
+          onClick={() => handleDelete(task.id)}
+          className="shrink-0 text-xs text-red-600 hover:underline"
+          title="Eliminar tarea externa"
+        >
+          Eliminar
+        </button>
+      </li>
+    );
+  }
+
+  return (
+    <div className="card mb-6 p-5">
+      <h2 className="mb-3 text-base font-semibold text-slate-800">Tareas externas</h2>
+
+      <form onSubmit={handleAdd} className="mb-3 flex gap-2">
+        <input
+          className="input flex-1"
+          placeholder="Agregar una tarea..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <button type="submit" disabled={adding || !title.trim()} className="btn shrink-0">
+          Agregar
+        </button>
+      </form>
+
+      {pending.length === 0 && done.length === 0 && (
+        <p className="py-4 text-center text-sm text-slate-400">No tienes ninguna tarea externa todavía.</p>
+      )}
+
+      {pending.length > 0 && (
+        <ul>
+          {pending.map((t) => (
+            <Row key={t.id} task={t} />
+          ))}
+        </ul>
+      )}
+
+      {done.length > 0 && (
+        <div className="mt-2">
+          <button
+            onClick={() => setShowDone((v) => !v)}
+            className="text-xs font-medium text-slate-400 hover:text-brand-600"
+          >
+            {showDone ? "Ocultar" : "Ver"} hechas ({done.length})
+          </button>
+          {showDone && (
+            <ul className="mt-2">
+              {done.map((t) => (
+                <Row key={t.id} task={t} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectTasksSection({ initialTasks }: { initialTasks: MyTask[] }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
@@ -131,6 +272,23 @@ export default function TasksView({ initialTasks }: { initialTasks: MyTask[] }) 
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+export default function TasksView({
+  initialExternalTasks,
+  initialTasks
+}: {
+  initialExternalTasks: ExternalTask[];
+  initialTasks: MyTask[];
+}) {
+  return (
+    <div>
+      <ExternalTasksSection initialExternalTasks={initialExternalTasks} />
+
+      <h2 className="mb-3 text-base font-semibold text-slate-800">Tareas de tus obras</h2>
+      <ProjectTasksSection initialTasks={initialTasks} />
     </div>
   );
 }
