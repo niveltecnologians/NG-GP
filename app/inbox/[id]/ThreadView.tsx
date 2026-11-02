@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Author = { id: string; name: string; email: string };
@@ -26,6 +26,14 @@ export default function ThreadView({ ticket, currentUserId }: { ticket: Ticket; 
   const [status, setStatus] = useState(ticket.status);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Al abrir un hilo, el servidor ya marcó el requerimiento como leído
+  // (ver app/inbox/[id]/page.tsx). Avisamos al Navbar para que refresque
+  // el número de la bandeja de inmediato, sin esperar al sondeo de 15s.
+  useEffect(() => {
+    window.dispatchEvent(new Event("ng-gp:inbox-updated"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
@@ -58,7 +66,12 @@ export default function ThreadView({ ticket, currentUserId }: { ticket: Ticket; 
   async function handleDelete() {
     if (!confirm("¿Eliminar este requerimiento y sus respuestas? Esta acción no se puede deshacer.")) return;
     const res = await fetch(`/api/inbox/${ticket.id}`, { method: "DELETE" });
-    if (res.ok) router.push("/inbox");
+    if (res.ok) {
+      // Avisa al Navbar que refresque el número de la bandeja de inmediato,
+      // sin esperar al sondeo de 15s.
+      window.dispatchEvent(new Event("ng-gp:inbox-updated"));
+      router.push("/inbox");
+    }
   }
 
   return (
